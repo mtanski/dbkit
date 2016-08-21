@@ -128,7 +128,7 @@ impl Type {
         })
     }
 
-    fn info(&self) -> TypeInfo {
+    fn info(&self) -> &'static TypeInfo {
         match *self {
             Type::UINT32  => &uint32,
             Type::UINT64  => &uint64,
