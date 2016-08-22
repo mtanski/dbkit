@@ -1,7 +1,6 @@
 // vim: set ts=4 sw=4 et :
 
 // libstd
-use std::mem;
 use std::iter::Iterator;
 
 // DBKit

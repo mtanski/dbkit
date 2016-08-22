@@ -1,6 +1,15 @@
 use std::mem;
+use std::str;
+use std::string;
 
-#[derive(Clone)]
+use super::error::DBError;
+
+pub struct RawData {
+    data: *mut u8,
+    size: usize,
+}
+
+#[derive(Clone, PartialEq)]
 pub enum Type {
     UINT32,
     UINT64,
@@ -15,9 +24,14 @@ pub enum Type {
 
 pub trait TypeInfo {
     type Store;
-    const SIZE_OF: usize;
     const ENUM: Type;
     const DEEP_COPY: bool = false;
+
+    // RUST SUCKS: cannot use mem::size_of::<Self::Store>()
+    // because apparently size_of is not constant.
+    fn size_of() -> usize {
+        mem::size_of::<Self::Store>()
+    }
 }
 
 pub struct UInt32;
@@ -32,56 +46,47 @@ pub struct Blob;
 
 impl TypeInfo for UInt32 {
     type Store = u32;
-    const SIZE_OF: usize = mem::size_of::<UInt32::Store>();
     const ENUM: Type = Type::UINT32;
 }
 
 impl TypeInfo for UInt64 {
     type Store = u64;
-    const SIZE_OF: usize = mem::size_of::<UInt64::Store>();
     const ENUM: Type = Type::UINT64;
 }
 
 impl TypeInfo for Int32 {
     type Store = i32;
-    const SIZE_OF: usize = mem::size_of::<Int32::Store>();
     const ENUM: Type = Type::INT32;
 }
 
 impl TypeInfo for Int64 {
     type Store = i64;
-    const SIZE_OF: usize = mem::size_of::<Int64::Store>();
     const ENUM: Type = Type::INT64;
 }
 
 impl TypeInfo for Float32 {
     type Store = f32;
-    const SIZE_OF: usize = mem::size_of::<Float32::Store>();
     const ENUM: Type = Type::FLOAT32;
 }
 
 impl TypeInfo for Float64 {
     type Store = f64;
-    const SIZE_OF: usize = mem::size_of::<Float64::Store>();
     const ENUM: Type = Type::FLOAT64;
 }
 
 impl TypeInfo for Boolean {
     type Store = bool;
-    const SIZE_OF: usize = mem::size_of::<Boolean::Store>();
     const ENUM: Type = Type::BOOLEAN;
 }
 
 impl TypeInfo for Text {
-    type Store = str;
-    const SIZE_OF: usize = mem::size_of::<Text::Store>();
+    type Store = RawData;
     const ENUM: Type = Type::TEXT;
     const DEEP_COPY: bool = true;
 }
 
 impl TypeInfo for Blob {
-    type Store = [u8];
-    const SIZE_OF: usize = mem::size_of::<Blob::Store>();
+    type Store = RawData;
     const ENUM: Type = Type::BLOB;
     const DEEP_COPY: bool = true;
 }
@@ -110,34 +115,22 @@ impl Type {
             Type::BLOB    => "BLOB",
         }
     }
+}
 
-    fn from_name(name: &str) -> Option<Type> {
-        Some(match name {
-            "UINT32"  => Type::UINT32,
-            "UINT64"  => Type::UINT64,
-            "INT32"   => Type::INT32,
-            "INT64"   => Type::INT64,
-            "FLOAT32" => Type::FLOAT32,
-            "FLOAT64" => Type::FLOAT64,
-            "BOOLEAN" => Type::BOOLEAN,
-            "TEXT"    => Type::TEXT,
-            "BLOB"    => Type::BLOB,
-            _         => return None,
-        })
-    }
-
-    fn info(&self) -> &'static TypeInfo {
-        match *self {
-            Type::UINT32  => &uint32,
-            Type::UINT64  => &uint64,
-            Type::INT32   => &int32,
-            Type::INT64   => &int64,
-            Type::FLOAT32 => &float32,
-            Type::FLOAT64 => &float64,
-            Type::BOOLEAN => &boolean,
-            Type::TEXT    => &text,
-            Type::BLOB    => &blob,
+impl str::FromStr for Type {
+    type Err = DBError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "UINT32"  => Ok(Type::UINT32),
+            "UINT64"  => Ok(Type::UINT64),
+            "INT32"   => Ok(Type::INT32),
+            "INT64"   => Ok(Type::INT64),
+            "FLOAT32" => Ok(Type::FLOAT32),
+            "FLOAT64" => Ok(Type::FLOAT64),
+            "BOOLEAN" => Ok(Type::BOOLEAN),
+            "TEXT"    => Ok(Type::TEXT),
+            "BLOB"    => Ok(Type::BLOB),
+            _         => Err(DBError::UnknownType(String::from(s)))
         }
     }
 }
-

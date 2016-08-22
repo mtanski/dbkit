@@ -1,109 +1,107 @@
 // vim : set ts=4 sw=4 et :
 
+use std::mem;
+use std::slice;
+
+
 use super::allocator::{Allocator, RawChunk};
-use super::types::{Type, TypeInfo};
+use super::types::{self, Type, TypeInfo};
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
-
-use std::io;
-use std::ptr;
-use std::mem;
 
 type BoolBitmap<'a> = &'a [u8];
 type MutBoolBitmap<'a> = &'a mut [u8];
 type RowOffset = usize;
 
 
-trait Column<'a> {
-    fn attribute(&self) -> &Attribute;
-    fn nulls(&self) -> Option<BoolBitmap>;
-    fn rows<T: TypeInfo>(&self) -> Result<&'a [T::Store], DBError> ;
-}
-
-struct OwnedColumn<'a> {
+pub struct Column<'alloc> {
+    allocator: &'alloc mut Allocator,
     attr: Attribute,
-    raw_nulls: Option<RawChunk<'a>>,
-    raw: Option<RawChunk<'a>>,
+    raw_nulls: RawChunk<'alloc>,
+    raw: RawChunk<'alloc>,
 }
 
-fn emptyRows<T: TypeInfo>(a: Attribute) -> Result<&'static mut [T::Store], DBError> {
-    match a.dtype {
-        T::ENUM => Ok([T::Store, 0]),
-        _       => Err(DBError::AttributeType(a.name)),
-    }
-}
-
-impl<'a> OwnedColumn<'a> {
-    fn new(a: &mut Allocator, attr: Attribute) -> OwnedColumn {
-        OwnedColumn {
+impl<'alloc> Column<'alloc> {
+    fn new(a: &'alloc mut Allocator, attr: Attribute) -> Column<'alloc> {
+        Column {
+            allocator: a,
             attr: attr,
-            raw_nulls: None,
-            raw: None,
+            raw_nulls: RawChunk::empty(),
+            raw: RawChunk::empty(),
+        }
+    }
+
+    fn attribute(&self) -> &Attribute {
+        &self.attr
+    }
+
+    fn nulls(&self) -> Result<BoolBitmap, DBError> {
+        if !self.attr.nullable {
+            return Err(DBError::AttributeNullability(self.attr.name.clone()))
+        }
+
+        unsafe {
+            return Ok(slice::from_raw_parts(self.raw_nulls.data, self.raw_nulls.size));
         }
     }
 
     fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
         if !self.attr.nullable {
-            return Err(DBError::AttributeNullability(self.attr.name))
+            return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }
 
-        self.raw_nulls
-            .map(|rc| -> MutBoolBitmap { unsafe { mem::transmute(rc) }})
-            .ok_or(DBError::Unknown)
+        unsafe {
+            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.raw_nulls.size));
+        }
     }
 
-    fn mut_rows<T: TypeInfo>(&mut self) -> Result<&'a mut [T::Store], DBError> {
-        match self.raw {
-            None    => emptyRows::<T>(self.attr),
+    fn rows<T: TypeInfo>(&self) -> Result<&[T::Store], DBError>  {
+        if self.attr.dtype != T::ENUM {
+            return Err(DBError::AttributeType(self.attr.name.clone()))
+        }
+
+        unsafe {
+            let ptr: *const T::Store = mem::transmute(self.raw.data);
+            return Ok(slice::from_raw_parts(ptr, self.raw.size));
+        }
+    }
+
+    fn mut_rows<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
+        if self.attr.dtype != T::ENUM {
+            return Err(DBError::AttributeType(self.attr.name.clone()))
+        }
+
+        unsafe {
+            let ptr: *mut T::Store = mem::transmute(self.raw.data);
+            return Ok(slice::from_raw_parts_mut(ptr, self.raw.size));
         }
     }
 
     unsafe fn raw_data(&mut self) -> *mut u8 {
-        match self.data {
-            None    => ptr::null_mut(),
-            Some(c) => c.raw,
-        }
+        self.raw.data
     }
 }
 
-impl<'a> Column<'a> for OwnedColumn<'a> {
-    fn attribute(&self) -> &Attribute {
-        &self.attr
-    }
-
-    fn nulls(&self) -> Option<BoolBitmap> {
-        match self.attr.nullable {
-            false => None,
-            true  => None
-        }
-    }
-
-    fn rows<T: TypeInfo>(&self) -> Result<&'a mut [T::Store], DBError>  {
-        match self.raw {
-            None    => emptyRows::<T>(self.attr),
-        }
-    }
-}
-
-trait View {
-    fn schema(&self) -> &Schema;
-    fn column(&self, pos: usize) -> Option<&Column>;
+trait View<'v> {
+    fn schema(&'v self) -> &'v Schema;
+    fn column(&'v self, pos: usize) -> Option<&'v Column>;
     fn rows(&self) -> RowOffset;
 }
 
-struct Block<'a> {
+pub struct Block<'alloc> {
+    allocator: &'alloc mut Allocator,
     schema: Schema,
-    columns: Vec<OwnedColumn<'a>>,
+    columns: Vec<Column<'alloc>>,
     rows: RowOffset,
     capacity: RowOffset,
 }
 
-impl<'a> View for Block<'a> {
-    fn schema(&self) -> &Schema {
+impl<'alloc> View<'alloc> for Block<'alloc> {
+    fn schema(&'alloc self) -> &'alloc Schema {
         &self.schema
     }
 
-    fn column(&self, pos: usize) -> Option<&Column> {
+    fn column(&'alloc self, pos: usize) -> Option<&'alloc Column> {
         if pos < self.columns.len() {
             let col: &Column = &self.columns[pos];
             Some(col)
@@ -117,45 +115,36 @@ impl<'a> View for Block<'a> {
     }
 }
 
-impl<'a> Block<'a> {
-    pub fn new(schema: &Schema) -> Block {
+impl<'alloc> Block<'alloc> {
+    pub fn new(alloc: &'alloc mut Allocator, schema: &Schema) -> Block<'alloc> {
         Block {
+            allocator: alloc,
             schema: schema.clone(),
-            columns: Block::make_columns(schema),
             rows: 0,
             capacity: 0,
+            columns: Vec::new(),
         }
+/*
+        columns: schema.iter()
+        .map(|attr| Column::new<'alloc>(alloc, attr))
+        .collect()
+
+        b;
+        */
     }
 
     pub fn capacity(&self) -> RowOffset {
         self.capacity
     }
 
-    pub fn set_capacity(&mut self, size: RowOffset) -> Option<io::Error> {
-        if size > self.capacity {
+    pub fn set_capacity(&mut self, size: RowOffset) -> Option<DBError> {
+        if size < self.capacity {
             for col in self.columns.iter_mut() {
-                col.nulls.resize(size, 0)
+                // TODO: Resize
             }
-            None
-        } else if size < self.capacity {
-            None
-        } else {
-            None
         }
-    }
 
-    pub fn mut_column(&mut self, pos: usize) -> Option<&mut OwnedColumn> {
-        if pos < self.columns.len() {
-            Some(&mut self.columns[pos])
-        } else {
-            None
-        }
-    }
-
-    fn make_columns(schema: &Schema) -> Vec<OwnedColumn> {
-        schema.iter()
-            .map(|attr| OwnedColumn::new(attr))
-            .collect()
+        None
     }
 
     pub fn expand(&mut self) -> Option<RowOffset> {
@@ -171,58 +160,57 @@ impl<'a> Block<'a> {
             Some(rowid)
         }
     }
-}
 
-impl<'a> Drop for Block<'a> {
-    fn drop(&mut self) {
-
+    /// panics on out of bounds column
+    pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
+        self.columns.get_mut(pos)
     }
 }
 
-struct Table<'a> {
-    block: Option<Block<'a>>,
+pub struct Table<'alloc> {
+    block: Option<Block<'alloc>>,
 }
 
-impl<'a> View for Table<'a> {
-    fn schema(&self) -> &Schema {
-        self.block.as_ref().map(|b| b.schema()).unwrap()
+impl<'alloc> View<'alloc> for Table<'alloc> {
+    fn schema(&'alloc self) -> &'alloc Schema {
+        self.block.as_ref().unwrap().schema()
     }
 
-    fn column(&self, pos: usize) -> Option<&Column> {
-        self.block.as_ref().and_then(|b| b.column(pos))
+    fn column(&'alloc self, pos: usize) -> Option<&'alloc Column> {
+        self.block.as_ref().unwrap().column(pos)
     }
 
     fn rows(&self) -> RowOffset {
-        self.block.as_ref().map(|b| b.rows()).unwrap()
+        self.block.as_ref().unwrap().rows()
     }
 }
 
-impl<'a> Table<'a> {
-    pub fn new(schema: &Schema, capacity: Option<RowOffset>) -> Table {
+impl<'alloc> Table<'alloc> {
+    pub fn new(alloc: &'alloc mut Allocator, schema: &Schema, capacity: Option<RowOffset>) -> Table<'alloc> {
         Table {
-            block: Some(Block::new(schema))
+            block: Some(Block::new(alloc, schema))
         }
     }
 
     pub fn add_row(&mut self) -> Result<RowOffset, DBError> {
-        let block = match self.block {
-            Some(ref mut b) => b,
-            None => panic!("Attempting to add a row to non-existing block")
-        };
-
-        block.expand().ok_or(DBError::Unknown)
+        self.block.as_mut().unwrap().expand().ok_or(DBError::Unknown)
     }
 
-    pub fn block(&self) -> Option<&Block> {
-        self.block.as_ref()
+    pub fn block_ref(&self) -> &Block<'alloc> {
+        self.block.as_ref().unwrap()
     }
 
-    pub fn mut_block(&mut self) -> Option<&mut Block> {
-        self.block.as_mut()
+    pub fn block_ref_mut(&mut self) -> &'alloc mut Block {
+        self.block.as_mut().unwrap()
     }
 
-    pub fn take(&mut self) -> Option<Block> {
+    pub fn take(&mut self) -> Option<Block<'alloc>> {
         self.block.take()
+    }
+
+    /// panics on out of bounds column
+    pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
+        self.block.as_mut().unwrap().column_mut(pos)
     }
 }
 
@@ -230,10 +218,8 @@ impl<'a> Table<'a> {
 ///
 /// TableAppender assumes that the Table owns the Block. If the Table does not own the block (eg.
 /// it was been taken) then the use of TableAppender will result in a panic!
-struct TableAppender<'a> {
+pub struct TableAppender<'a> {
     table: &'a mut Table<'a>,
-    // Start row (when we started appending to)
-    start: RowOffset,
     // Current row offset
     row: RowOffset,
     // Current column offset
@@ -242,17 +228,25 @@ struct TableAppender<'a> {
 }
 
 impl<'a> TableAppender<'a> {
-    pub fn new(table: &'a mut Table) -> TableAppender<'a> {
+    pub fn new(table: &'a mut Table<'a>) -> TableAppender<'a> {
         return TableAppender {
-            start: table.rows(),
             row: table.rows(),
             table: table,
             col: 0,
             error: None,
-        };
+        }
     }
 
-    pub fn add_row(&mut self) -> &mut Self {
+    /// Result of append operation
+    pub fn status(&self) -> Option<&DBError> {
+        self.error.as_ref()
+    }
+
+    pub fn done(&mut self) -> Option<DBError> {
+        self.error.take()
+    }
+
+    pub fn add_row(mut self) -> TableAppender<'a> {
         if self.error.is_some() {
             return self;
         }
@@ -264,53 +258,40 @@ impl<'a> TableAppender<'a> {
         self
     }
 
-    pub fn set_null(&mut self, value: bool) -> &mut Self {
-        let mut error: Option<DBError> = None;
+    pub fn set_null(mut self, value: bool) -> TableAppender<'a> {
+        if self.error.is_some() {
+            return self
+        }
 
-        {
-            let row = self.row;
-            let col = self.next_column().unwrap();
-
-            let attr = &col.attr;
-
-            if attr.nullable {
-                col.nulls[row] = value as u8
-            } else {
-                error = Some(DBError::makeColumnNotNullable(attr.name.clone()))
+        fn is_nullable<'a>(c: &'a mut Column<'a>) -> Result<&mut Column<'a>, DBError> {
+            match c.attr.nullable {
+                true => Ok(c),
+                _ => Err(DBError::makeColumnNotNullable(c.attr.name.clone())),
             }
         }
 
-        self.error = self.error.take().or(error);
-        self
+        let col = self.col;
+        let row = self.row;
+
+        let err = self.table
+            .column_mut(col)
+            .ok_or(DBError::makeColumnUnknownPos(col))
+            .and_then(|c| c.mut_nulls())
+            .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
+            .err();
+
+        self.error = err;
+        self.col += 1;
+        return self
     }
 
-    pub fn set_u32(&mut self, value: u32) -> &mut Self {
-        self
-    }
-
-    /// Result of append operation
-    pub fn status(&self) -> Option<&DBError> {
-        self.error.as_ref()
-    }
-
-    /// Short hand
-    fn next_column(&mut self) -> Option<&mut OwnedColumn> {
+    pub fn set_u32(mut self, value: u32) -> TableAppender<'a> {
         if self.error.is_some() {
-            return None;
+            return self
         }
 
-        // Will panic! if this is null
-        let block = self.table.mut_block().unwrap();
-
-        let col = block.mut_column(self.col);
-
-        if col.is_none() {
-            self.error = Some(DBError::AttributeMissing(format!("(pos: {})", self.col)));
-            None
-        } else {
-            self.col += 1;
-            col
-        }
+	// TODO: 
+	self
     }
 }
 
