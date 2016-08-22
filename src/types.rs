@@ -1,5 +1,3 @@
-#![feature(associated_consts)]
-
 use std::mem;
 
 #[derive(Clone)]

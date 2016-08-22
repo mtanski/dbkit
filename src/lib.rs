@@ -1,4 +1,6 @@
 #![feature(associated_consts)]
+#![feature(alloc)]
+#![feature(heap_api)]
 
 extern crate alloc;
 

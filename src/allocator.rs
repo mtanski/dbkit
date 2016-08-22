@@ -1,7 +1,5 @@
 // vim : set ts=4 sw=4 et :
 
-#![feature(alloc)]
-
 use std::mem;
 use alloc::heap;
 
