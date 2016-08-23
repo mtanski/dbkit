@@ -11,6 +11,7 @@ pub mod schema;
 
 pub mod allocator;
 pub mod block;
+pub mod table;
 
 pub mod cursor;
 pub mod operation;

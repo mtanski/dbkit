@@ -3,15 +3,14 @@
 use std::mem;
 use std::slice;
 
-
 use super::allocator::{self, Allocator, RawChunk};
 use super::types::{self, Type, TypeInfo};
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
 
-type BoolBitmap<'a> = &'a [u8];
-type MutBoolBitmap<'a> = &'a mut [u8];
-type RowOffset = usize;
+pub type BoolBitmap<'a> = &'a [u8];
+pub type MutBoolBitmap<'a> = &'a mut [u8];
+pub type RowOffset = usize;
 
 
 pub struct Column<'alloc> {
@@ -31,11 +30,11 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    fn attribute(&self) -> &Attribute {
+    pub fn attribute(&self) -> &Attribute {
         &self.attr
     }
 
-    fn nulls(&self) -> Result<BoolBitmap, DBError> {
+    pub fn nulls(&self) -> Result<BoolBitmap, DBError> {
         if !self.attr.nullable {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }
@@ -45,7 +44,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
+    pub fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
         if !self.attr.nullable {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }
@@ -55,7 +54,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    fn rows<T: TypeInfo>(&self) -> Result<&[T::Store], DBError>  {
+    pub fn rows<T: TypeInfo>(&self) -> Result<&[T::Store], DBError>  {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
         }
@@ -66,7 +65,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    fn mut_rows<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
+    pub fn rows_mut<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
         }
@@ -77,12 +76,12 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    unsafe fn raw_data(&mut self) -> *mut u8 {
+    pub unsafe fn raw_data(&mut self) -> *mut u8 {
         self.raw.data
     }
 }
 
-trait View<'v> {
+pub trait View<'v> {
     fn schema(&'v self) -> &'v Schema;
     fn column(&'v self, pos: usize) -> Option<&'v Column>;
     fn rows(&self) -> RowOffset;
@@ -165,158 +164,5 @@ impl<'alloc> Block<'alloc> {
     pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
         self.columns.get_mut(pos)
     }
-}
-
-pub struct Table<'alloc> {
-    block: Option<Block<'alloc>>,
-}
-
-impl<'alloc> View<'alloc> for Table<'alloc> {
-    fn schema(&'alloc self) -> &'alloc Schema {
-        self.block.as_ref().unwrap().schema()
-    }
-
-    fn column(&'alloc self, pos: usize) -> Option<&'alloc Column> {
-        self.block.as_ref().unwrap().column(pos)
-    }
-
-    fn rows(&self) -> RowOffset {
-        self.block.as_ref().unwrap().rows()
-    }
-}
-
-impl<'alloc> Table<'alloc> {
-    pub fn new(alloc: &'alloc mut Allocator, schema: &Schema, capacity: Option<RowOffset>) -> Table<'alloc> {
-        Table {
-            block: Some(Block::new(alloc, schema))
-        }
-    }
-
-    pub fn add_row(&mut self) -> Result<RowOffset, DBError> {
-        self.block.as_mut().unwrap().expand().ok_or(DBError::Unknown)
-    }
-
-    pub fn block_ref(&self) -> &Block<'alloc> {
-        self.block.as_ref().unwrap()
-    }
-
-    pub fn block_ref_mut(&mut self) -> &'alloc mut Block {
-        self.block.as_mut().unwrap()
-    }
-
-    pub fn take(&mut self) -> Option<Block<'alloc>> {
-        self.block.take()
-    }
-
-    /// panics on out of bounds column
-    pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
-        self.block.as_mut().unwrap().column_mut(pos)
-    }
-}
-
-/// TableAppender is a convenient way to pragmatically build a Table/Block.
-///
-/// TableAppender assumes that the Table owns the Block. If the Table does not own the block (eg.
-/// it was been taken) then the use of TableAppender will result in a panic!
-pub struct TableAppender<'alloc: 't, 't> {
-    table: &'t mut Table<'alloc>,
-    // Current row offset
-    row: RowOffset,
-    // Current column offset
-    col: usize,
-    error: Option<DBError>,
-}
-
-impl<'alloc: 't, 't> TableAppender<'alloc, 't> {
-    pub fn new(table: &'t mut Table<'alloc>) -> TableAppender<'alloc, 't> {
-        return TableAppender {
-            row: table.rows(),
-            table: table,
-            col: 0,
-            error: None,
-        }
-    }
-
-    /// Result of append operation
-    pub fn status(&self) -> Option<&DBError> {
-        self.error.as_ref()
-    }
-
-    pub fn done(&mut self) -> Option<DBError> {
-        self.error.take()
-    }
-
-    pub fn add_row(mut self) -> TableAppender<'alloc, 't> {
-        if self.error.is_some() {
-            return self;
-        }
-
-        self.col = 0;
-        // Panics if this failed
-        self.row = self.table.add_row().unwrap();
-
-        self
-    }
-
-    pub fn set_null(mut self, value: bool) -> TableAppender<'alloc, 't> {
-        if self.error.is_some() {
-            return self
-        }
-
-        fn is_nullable<'a>(c: &'a mut Column<'a>) -> Result<&mut Column<'a>, DBError> {
-            match c.attr.nullable {
-                true => Ok(c),
-                _ => Err(DBError::makeColumnNotNullable(c.attr.name.clone())),
-            }
-        }
-
-        let col = self.col;
-        let row = self.row;
-
-        let err = self.table
-            .column_mut(col)
-            .ok_or(DBError::makeColumnUnknownPos(col))
-            .and_then(|c| c.mut_nulls())
-            .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
-            .err();
-
-        self.error = err;
-        self.col += 1;
-        return self
-    }
-
-    pub fn set_u32(mut self, value: u32) -> TableAppender<'alloc, 't> {
-        if self.error.is_some() {
-            return self
-        }
-
-	    // TODO:
-	    self
-    }
-}
-
-// Append one row to table via TableAppender, verify that underlying block has one row.
-#[test]
-fn appender_row()
-{
-    let alloc = allocator::HeapAllocator::global();
-    let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
-    let mut table = Table::new(alloc, &schema, None);
-
-    {
-        let mut appender = TableAppender::new(&mut table);
-
-        let status = appender
-            .add_row()
-                .set_null(true)
-            .done();
-
-        assert!(status.is_none(), "{}", status.unwrap());
-    }
-
-    match table.take() {
-        Some(block) => assert_eq!(block.rows(), 1 as RowOffset),
-        None => panic!("No block inside the table"),
-    };
 }
 
