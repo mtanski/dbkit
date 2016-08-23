@@ -4,7 +4,7 @@ use std::mem;
 use std::slice;
 
 
-use super::allocator::{Allocator, RawChunk};
+use super::allocator::{self, Allocator, RawChunk};
 use super::types::{self, Type, TypeInfo};
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
@@ -218,8 +218,8 @@ impl<'alloc> Table<'alloc> {
 ///
 /// TableAppender assumes that the Table owns the Block. If the Table does not own the block (eg.
 /// it was been taken) then the use of TableAppender will result in a panic!
-pub struct TableAppender<'a> {
-    table: &'a mut Table<'a>,
+pub struct TableAppender<'alloc: 't, 't> {
+    table: &'t mut Table<'alloc>,
     // Current row offset
     row: RowOffset,
     // Current column offset
@@ -227,8 +227,8 @@ pub struct TableAppender<'a> {
     error: Option<DBError>,
 }
 
-impl<'a> TableAppender<'a> {
-    pub fn new(table: &'a mut Table<'a>) -> TableAppender<'a> {
+impl<'alloc: 't, 't> TableAppender<'alloc, 't> {
+    pub fn new(table: &'t mut Table<'alloc>) -> TableAppender<'alloc, 't> {
         return TableAppender {
             row: table.rows(),
             table: table,
@@ -246,7 +246,7 @@ impl<'a> TableAppender<'a> {
         self.error.take()
     }
 
-    pub fn add_row(mut self) -> TableAppender<'a> {
+    pub fn add_row(mut self) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self;
         }
@@ -258,7 +258,7 @@ impl<'a> TableAppender<'a> {
         self
     }
 
-    pub fn set_null(mut self, value: bool) -> TableAppender<'a> {
+    pub fn set_null(mut self, value: bool) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
@@ -285,13 +285,13 @@ impl<'a> TableAppender<'a> {
         return self
     }
 
-    pub fn set_u32(mut self, value: u32) -> TableAppender<'a> {
+    pub fn set_u32(mut self, value: u32) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
 
-	// TODO: 
-	self
+	    // TODO:
+	    self
     }
 }
 
@@ -299,8 +299,9 @@ impl<'a> TableAppender<'a> {
 #[test]
 fn appender_row()
 {
+    let alloc = allocator::HeapAllocator::global();
     let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
-    let mut table = Table::new(&schema, None);
+    let mut table = Table::new(alloc, &schema, None);
 
     {
         let mut appender = TableAppender::new(&mut table);
@@ -308,7 +309,7 @@ fn appender_row()
         let status = appender
             .add_row()
                 .set_null(true)
-            .status();
+            .done();
 
         assert!(status.is_none(), "{}", status.unwrap());
     }
@@ -318,6 +319,4 @@ fn appender_row()
         None => panic!("No block inside the table"),
     };
 }
-
-
 
