@@ -84,7 +84,7 @@ impl Allocator for HeapAllocator {
 static mut globalHeap : HeapAllocator = HeapAllocator{};
 
 impl HeapAllocator {
-    fn global() -> &'static mut HeapAllocator {
+    pub fn global() -> &'static mut HeapAllocator {
         unsafe {
             &mut globalHeap
         }
