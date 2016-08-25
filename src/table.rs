@@ -78,7 +78,7 @@ impl<'alloc> Table<'alloc> {
     }
 }
 
-/// TableAppender is a convenient way to pragmatically build a Table/Block.
+/// TableAppender is a convenient way to programmatically build a Table/Block.
 ///
 /// TableAppender assumes that the Table owns the Block. If the Table does not own the block (eg.
 /// it was been taken) then the use of TableAppender will result in a panic!
