@@ -87,8 +87,7 @@ impl Allocator for HeapAllocator {
     }
 
     fn putback(&mut self, size: usize) {
-        // TODO: panic
-        // DO NOTHING
+        panic!("Global heap doesn't keep track of memory usage")
     }
 }
 

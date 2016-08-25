@@ -1,5 +1,5 @@
 
-use super::allocator::{Allocator};
+use super::allocator::{self, Allocator};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
@@ -210,4 +210,3 @@ fn appender_row()
         None => panic!("No block inside the table"),
     };
 }
-
