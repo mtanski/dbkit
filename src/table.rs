@@ -193,13 +193,11 @@ fn appender_row()
     let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
     {
-        let mut appender = TableAppender::new(&mut table);
-
-        let status = appender
+        let status = TableAppender::new(&mut table)
             .add_row()
-            .set_null(true)
+                .set_null(true)
             .add_row()
-            .set_u32(15)
+                .set_u32(15)
             .done();
 
         assert!(status.is_none(), "{}", status.unwrap());
