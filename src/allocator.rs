@@ -29,11 +29,11 @@ pub struct HeapAllocator { }
 
 /// Minimum alignment for platform.
 ///
-/// Takes into account SIMD types that will used for operations.
+/// Takes into account SIMD (AVX2) types that will used for operations.
 ///
-/// RUST SUCKS: mem::size_of is not consnt
-/// const MIN_ALIGN: usize = mem::size_of::<usize>();
-// AVX2
+// RUST IS FRUSTRATING:
+// mem::size_of is not const
+// const MIN_ALIGN: usize = mem::size_of::<usize>();
 const MIN_ALIGN: usize = 32;
 
 impl<'a> RawChunk<'a> {

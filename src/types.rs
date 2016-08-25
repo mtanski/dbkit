@@ -9,7 +9,7 @@ pub struct RawData {
     pub size: usize,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Type {
     UINT32,
     UINT64,
@@ -23,13 +23,14 @@ pub enum Type {
 }
 
 pub trait TypeInfo {
+    // FIXME:
     type Store;
     const ENUM: Type;
     const DEEP_COPY: bool = false;
 
     // RUST SUCKS: cannot use mem::size_of::<Self::Store>()
     // because apparently size_of is not constant.
-    fn size_of() -> usize {
+    fn size_of(&self) -> usize {
         mem::size_of::<Self::Store>()
     }
 }
@@ -91,19 +92,19 @@ impl TypeInfo for Blob {
     const DEEP_COPY: bool = true;
 }
 
-static uint32 : UInt32 = UInt32{};
-static uint64: UInt64 = UInt64{};
-static int32: Int32 = Int32{};
-static int64: Int64 = Int64{};
-static float32: Float32 = Float32{};
-static float64: Float64 = Float64{};
-static boolean: Boolean = Boolean{};
-static text: Text = Text{};
-static blob: Blob = Blob{};
+static UINT32: UInt32 = UInt32{};
+static UINT64: UInt64 = UInt64{};
+static INT32: Int32 = Int32{};
+static INT64: Int64 = Int64{};
+static FLOAT32: Float32 = Float32{};
+static FLOAT64: Float64 = Float64{};
+static BOOLEAN: Boolean = Boolean{};
+static TEXT: Text = Text{};
+static BLOB: Blob = Blob{};
 
 impl Type {
-    fn name(&self) -> &'static str {
-        match *self {
+    pub fn name(self) -> &'static str {
+        match self {
             Type::UINT32  => "UINT32",
             Type::UINT64  => "UINT64",
             Type::INT32   => "INT32",
@@ -113,6 +114,24 @@ impl Type {
             Type::BOOLEAN => "BOOLEAN",
             Type::TEXT    => "TEXT",
             Type::BLOB    => "BLOB",
+        }
+    }
+
+    // RUST is frustrating
+    // There's no implementation specialization,
+    // and can't use a associated trait type (defaulted or not) in an expression.
+    // So we have to keep repeating ourselves
+    pub fn size_of(self) -> usize {
+        match self {
+            Type::UINT32 => UINT32.size_of(),
+            Type::UINT64 => UINT64.size_of(),
+            Type::INT32 => INT32.size_of(),
+            Type::INT64 => INT64.size_of(),
+            Type::FLOAT32 => FLOAT32.size_of(),
+            Type::FLOAT64 => FLOAT64.size_of(),
+            Type::BOOLEAN => BOOLEAN.size_of(),
+            Type::TEXT => TEXT.size_of(),
+            Type::BLOB => BLOB.size_of(),
         }
     }
 }

@@ -22,6 +22,10 @@ pub struct Column<'alloc> {
     raw: RawChunk<'alloc>,
 }
 
+/// Typed Data Column. Contains a vector of column rows, and optionally a nul vector.
+///
+/// Knows its capacity but not size (that's up to the parent container). Has no concept of current
+/// position.
 impl<'alloc> Column<'alloc> {
     fn new(a: &'alloc Allocator, attr: Attribute) -> Column<'alloc> {
         Column {
@@ -34,6 +38,10 @@ impl<'alloc> Column<'alloc> {
 
     pub fn attribute(&self) -> &Attribute {
         &self.attr
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.raw.size / self.attr.dtype.size_of()
     }
 
     pub fn nulls(&self) -> Result<BoolBitmap, DBError> {
