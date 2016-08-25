@@ -1,13 +1,12 @@
 // vim : set ts=4 sw=4 et :
 
 // libstd
-use std::convert::Into;
 use std::mem;
 use std::slice;
 
 // DBKit
-use super::allocator::{self, Allocator, RawChunk};
-use super::types::{self, Type, TypeInfo};
+use super::allocator::{Allocator, RawChunk};
+use super::types::{TypeInfo};
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
 
@@ -126,6 +125,9 @@ impl<'b> Block<'b> {
             capacity: 0,
             columns: Vec::new()
         };
+
+        for attr in schema.iter() {
+            b.columns.push(Column::new(b.allocator, attr.clone()))
         }
 
         b

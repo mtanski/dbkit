@@ -1,5 +1,5 @@
 
-use super::allocator::{self, Allocator};
+use super::allocator::{Allocator};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
@@ -34,6 +34,12 @@ impl<'alloc> View<'alloc> for Table<'alloc> {
 
 impl<'alloc> Table<'alloc> {
     pub fn new(alloc: &'alloc Allocator, schema: &Schema, capacity: Option<RowOffset>) -> Table<'alloc> {
+        let b = Some(Block::new(alloc, schema));
+
+        if let (Some(c), Some(mut b)) = (capacity, b) {
+            b.set_capacity(c);
+        }
+
         Table {
             block: Some(Block::new(alloc, schema))
         }

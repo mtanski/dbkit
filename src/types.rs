@@ -1,14 +1,12 @@
 
-use std::convert::Into;
 use std::mem;
 use std::str;
-use std::string;
 
 use super::error::DBError;
 
 pub struct RawData {
-    data: *mut u8,
-    size: usize,
+    pub data: *mut u8,
+    pub size: usize,
 }
 
 #[derive(Clone, PartialEq)]
