@@ -56,7 +56,13 @@ impl Schema {
         return self.attrs.len()
     }
 
-    pub fn exists(&self, name: &String) -> Option<usize> {
+    pub fn exists(&self, name: &str) -> Option<usize> {
+        for pos in 0..self.attrs.len() {
+            if &self.attrs[pos].name == name {
+                return Some(pos)
+            }
+        }
+
         return None
     }
 
@@ -68,9 +74,9 @@ impl Schema {
         }
     }
 
-    pub fn find(&self, name: &String) -> Result<&Attribute, DBError> {
+    pub fn find(&self, name: &str) -> Result<&Attribute, DBError> {
         for attr in self.attrs.iter() {
-            if attr.name == *name {
+            if &attr.name == name {
                 return Ok(attr)
             }
         }
