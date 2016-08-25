@@ -9,23 +9,23 @@ use super::error::DBError;
 ///
 ///
 /// Allocators have to maintain their own synchornization
-pub trait Allocator : Sync {
-    fn allocate(&mut self, size: usize) -> Result<RawChunk, DBError>;
-    fn allocate_aligned(&mut self, size: usize, align: usize) -> Result<RawChunk, DBError>;
+pub trait Allocator : Send + Sync {
+    fn allocate(&self, size: usize) -> Result<RawChunk, DBError>;
+    fn allocate_aligned(&self, size: usize, align: usize) -> Result<RawChunk, DBError>;
+
+    fn putback(&mut self, size: usize);
 }
 
 pub struct RawChunk<'a> {
-    parent: &'a mut Allocator,
+    parent: Option<&'a mut Allocator>,
     pub data: *mut u8,
     pub size: usize,
     pub align: usize,
 }
 
 
-/// Simple heap allocator with no memory tracking
-pub struct HeapAllocator {
-
-}
+/// Simple heap allocator without memory tracking
+pub struct HeapAllocator { }
 
 /// Minimum alignment for platform.
 ///
@@ -39,7 +39,7 @@ const MIN_ALIGN: usize = 32;
 impl<'a> RawChunk<'a> {
     pub fn empty() -> RawChunk<'a> {
         return RawChunk {
-            parent: HeapAllocator::global(),
+            parent: None,
             data: ptr::null_mut(),
             size: 0,
             align: MIN_ALIGN,
@@ -47,7 +47,7 @@ impl<'a> RawChunk<'a> {
     }
 
     fn is_null(&self) -> bool {
-        self.data.is_null()
+       self.data.is_null()
     }
 }
 
@@ -55,38 +55,42 @@ impl<'a> Drop for RawChunk<'a> {
     fn drop(&mut self) {
         if !self.is_null() {
             unsafe {
-                heap::deallocate(self.data, self.size, self.align)
+                heap::deallocate(self.data, self.size, self.align);
+            }
+
+            if let Some(ref mut p) = self.parent {
+                p.putback(self.size);
             }
         }
     }
 }
 
-unsafe impl Sync for HeapAllocator {}
+unsafe impl Send for HeapAllocator{}
+unsafe impl Sync for HeapAllocator{}
 
 /// Simple heap allocator that delegates to alloc::heap
 impl Allocator for HeapAllocator {
-    fn allocate(&mut self, size: usize) -> Result<RawChunk, DBError> {
+    fn allocate(&self, size: usize) -> Result<RawChunk, DBError> {
         self.allocate_aligned(size, MIN_ALIGN)
     }
 
-    fn allocate_aligned(&mut self, size: usize, align: usize) -> Result<RawChunk, DBError> {
+    fn allocate_aligned(&self, size: usize, align: usize) -> Result<RawChunk, DBError> {
         unsafe {
             let data = heap::allocate(size, align);
             if !data.is_null() {
-                return Ok(RawChunk { parent: self, data: data, size: size, align: align});
+                // There's no tracking of memory here
+                return Ok(RawChunk { parent: None, data: data, size: size, align: align});
             } else {
                 return Err(DBError::Memory)
             }
         }
     }
-}
 
-static mut globalHeap : HeapAllocator = HeapAllocator{};
-
-impl HeapAllocator {
-    pub fn global() -> &'static mut HeapAllocator {
-        unsafe {
-            &mut globalHeap
-        }
+    fn putback(&mut self, size: usize) {
+        // TODO: panic
+        // DO NOTHING
     }
 }
+
+pub static GLOBAL: HeapAllocator = HeapAllocator{};
+

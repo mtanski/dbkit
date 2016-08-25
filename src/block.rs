@@ -1,8 +1,11 @@
 // vim : set ts=4 sw=4 et :
 
+// libstd
+use std::convert::Into;
 use std::mem;
 use std::slice;
 
+// DBKit
 use super::allocator::{self, Allocator, RawChunk};
 use super::types::{self, Type, TypeInfo};
 use super::schema::{Attribute, Schema};
@@ -14,14 +17,14 @@ pub type RowOffset = usize;
 
 
 pub struct Column<'alloc> {
-    allocator: &'alloc mut Allocator,
+    allocator: &'alloc Allocator,
     attr: Attribute,
     raw_nulls: RawChunk<'alloc>,
     raw: RawChunk<'alloc>,
 }
 
 impl<'alloc> Column<'alloc> {
-    fn new(a: &'alloc mut Allocator, attr: Attribute) -> Column<'alloc> {
+    fn new(a: &'alloc Allocator, attr: Attribute) -> Column<'alloc> {
         Column {
             allocator: a,
             attr: attr,
@@ -82,25 +85,25 @@ impl<'alloc> Column<'alloc> {
 }
 
 pub trait View<'v> {
-    fn schema(&'v self) -> &'v Schema;
+    fn schema(&self) -> &Schema;
     fn column(&'v self, pos: usize) -> Option<&'v Column>;
     fn rows(&self) -> RowOffset;
 }
 
-pub struct Block<'alloc> {
-    allocator: &'alloc mut Allocator,
+pub struct Block<'b> {
+    allocator: &'b Allocator,
     schema: Schema,
-    columns: Vec<Column<'alloc>>,
+    columns: Vec<Column<'b>>,
     rows: RowOffset,
     capacity: RowOffset,
 }
 
-impl<'alloc> View<'alloc> for Block<'alloc> {
-    fn schema(&'alloc self) -> &'alloc Schema {
+impl<'b> View<'b> for Block<'b> {
+    fn schema(& self) -> &Schema {
         &self.schema
     }
 
-    fn column(&'alloc self, pos: usize) -> Option<&'alloc Column> {
+    fn column(&'b self, pos: usize) -> Option<&'b Column> {
         if pos < self.columns.len() {
             let col: &Column = &self.columns[pos];
             Some(col)
@@ -114,22 +117,18 @@ impl<'alloc> View<'alloc> for Block<'alloc> {
     }
 }
 
-impl<'alloc> Block<'alloc> {
-    pub fn new(alloc: &'alloc mut Allocator, schema: &Schema) -> Block<'alloc> {
-        Block {
+impl<'b> Block<'b> {
+    pub fn new(alloc: &'b Allocator, schema: &Schema) -> Block<'b> {
+        let mut b = Block {
             allocator: alloc,
             schema: schema.clone(),
             rows: 0,
             capacity: 0,
-            columns: Vec::new(),
+            columns: Vec::new()
+        };
         }
-/*
-        columns: schema.iter()
-        .map(|attr| Column::new<'alloc>(alloc, attr))
-        .collect()
 
-        b;
-        */
+        b
     }
 
     pub fn capacity(&self) -> RowOffset {
@@ -161,7 +160,7 @@ impl<'alloc> Block<'alloc> {
     }
 
     /// panics on out of bounds column
-    pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
+    pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'b>> {
         self.columns.get_mut(pos)
     }
 }

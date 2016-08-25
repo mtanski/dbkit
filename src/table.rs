@@ -3,43 +3,60 @@ use super::allocator::{self, Allocator};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
-use super::types::Type;
+use super::types::{self, Type};
 
 pub struct Table<'alloc> {
     block: Option<Block<'alloc>>,
 }
 
 impl<'alloc> View<'alloc> for Table<'alloc> {
-    fn schema(&'alloc self) -> &'alloc Schema {
-        self.block.as_ref().unwrap().schema()
+    fn schema(&self) -> &Schema {
+        self.block
+            .as_ref()
+            .unwrap()
+            .schema()
     }
 
-    fn column(&'alloc self, pos: usize) -> Option<&'alloc Column> {
-        self.block.as_ref().unwrap().column(pos)
+    fn column(&self, pos: usize) -> Option<&'alloc Column> {
+        self.block
+            .as_ref()
+            .unwrap()
+            .column(pos)
     }
 
     fn rows(&self) -> RowOffset {
-        self.block.as_ref().unwrap().rows()
+        self.block
+            .as_ref()
+            .unwrap()
+            .rows()
     }
 }
 
 impl<'alloc> Table<'alloc> {
-    pub fn new(alloc: &'alloc mut Allocator, schema: &Schema, capacity: Option<RowOffset>) -> Table<'alloc> {
+    pub fn new(alloc: &'alloc Allocator, schema: &Schema, capacity: Option<RowOffset>) -> Table<'alloc> {
         Table {
             block: Some(Block::new(alloc, schema))
         }
     }
 
     pub fn add_row(&mut self) -> Result<RowOffset, DBError> {
-        self.block.as_mut().unwrap().expand().ok_or(DBError::Unknown)
+        self.block
+            .as_mut()
+            .unwrap()
+            .expand()
+            .ok_or(DBError::Unknown)
     }
 
-    pub fn block_ref(&self) -> &Block<'alloc> {
-        self.block.as_ref().unwrap()
+    pub fn block_ref(&self) -> &'alloc Block {
+        self.block
+            .as_ref()
+            .unwrap()
     }
 
     pub fn block_ref_mut(&mut self) -> &'alloc mut Block {
-        self.block.as_mut().unwrap()
+        self.block
+            .as_mut()
+            .unwrap()
     }
 
     pub fn take(&mut self) -> Option<Block<'alloc>> {
@@ -48,7 +65,10 @@ impl<'alloc> Table<'alloc> {
 
     /// panics on out of bounds column
     pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
-        self.block.as_mut().unwrap().column_mut(pos)
+        self.block
+            .as_mut()
+            .unwrap()
+            .column_mut(pos)
     }
 }
 
@@ -65,9 +85,9 @@ pub struct TableAppender<'alloc: 't, 't> {
     error: Option<DBError>,
 }
 
-impl<'alloc: 't, 't> TableAppender<'alloc, 't> {
+impl<'alloc, 't> TableAppender<'alloc, 't> {
     pub fn new(table: &'t mut Table<'alloc>) -> TableAppender<'alloc, 't> {
-        return TableAppender {
+         TableAppender {
             row: table.rows(),
             table: table,
             col: 0,
@@ -101,35 +121,61 @@ impl<'alloc: 't, 't> TableAppender<'alloc, 't> {
             return self
         }
 
-        fn is_nullable<'a>(c: &'a mut Column<'a>) -> Result<&mut Column<'a>, DBError> {
-            match c.attribute().nullable {
-                true => Ok(c),
-                _ => Err(DBError::makeColumnNotNullable(c.attribute().name.clone())),
-            }
-        }
-
         let col = self.col;
         let row = self.row;
 
-        let err = self.table
+        self.error = self.table
             .column_mut(col)
             .ok_or(DBError::makeColumnUnknownPos(col))
             .and_then(|c| c.mut_nulls())
             .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
             .err();
 
-        self.error = err;
         self.col += 1;
-        return self
+        self
     }
 
-    pub fn set_u32(mut self, value: u32) -> TableAppender<'alloc, 't> {
+    pub fn set<T: types::TypeInfo>(mut self, value: T::Store) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
 
-        // TODO:
+        let col = self.col;
+        let row = self.row;
+
+        self.error = self.table
+            .column_mut(col)
+            .ok_or(DBError::makeColumnUnknownPos(col))
+            .and_then(|c| c.rows_mut::<T>())
+            .and_then(|rows| { rows[row] = value; Ok(())})
+            .err();
+
+        self.col += 1;
         self
+    }
+
+    pub fn set_u32(self, value: u32) -> TableAppender<'alloc, 't> {
+        self.set::<types::UInt32>(value)
+    }
+
+    pub fn set_u64(self, value: u64) -> TableAppender<'alloc, 't> {
+        self.set::<types::UInt64>(value)
+    }
+
+    pub fn set_i32(self, value: i32) -> TableAppender<'alloc, 't> {
+        self.set::<types::Int32>(value)
+    }
+
+    pub fn set_i64(self, value: i64) -> TableAppender<'alloc, 't> {
+        self.set::<types::Int64>(value)
+    }
+
+    pub fn set_f32(self, value: f32) -> TableAppender<'alloc, 't> {
+        self.set::<types::Float32>(value)
+    }
+
+    pub fn set_f64(self, value: f64) -> TableAppender<'alloc, 't> {
+        self.set::<types::Float64>(value)
     }
 }
 
@@ -137,9 +183,8 @@ impl<'alloc: 't, 't> TableAppender<'alloc, 't> {
 #[test]
 fn appender_row()
 {
-    let alloc = allocator::HeapAllocator::global();
     let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
-    let mut table = Table::new(alloc, &schema, None);
+    let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
     {
         let mut appender = TableAppender::new(&mut table);
@@ -147,6 +192,8 @@ fn appender_row()
         let status = appender
             .add_row()
             .set_null(true)
+            .add_row()
+            .set_u32(15)
             .done();
 
         assert!(status.is_none(), "{}", status.unwrap());

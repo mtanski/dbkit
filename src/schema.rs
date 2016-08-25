@@ -84,13 +84,13 @@ impl Schema {
 }
 
 impl<'a> Iterator for AttributeIter<'a> {
-    type Item = Attribute;
+    type Item = &'a Attribute;
 
-    fn next(&mut self) -> Option<Attribute> {
+    fn next(&mut self) -> Option<&'a Attribute> {
         let r = if self.cur >= self.schema.attrs.len() {
             return None
         } else {
-            self.schema.attrs[self.cur].clone()
+            &self.schema.attrs[self.cur]
         };
 
         self.cur += 1;

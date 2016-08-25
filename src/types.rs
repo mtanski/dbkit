@@ -1,3 +1,5 @@
+
+use std::convert::Into;
 use std::mem;
 use std::str;
 use std::string;
@@ -134,3 +136,4 @@ impl str::FromStr for Type {
         }
     }
 }
+
