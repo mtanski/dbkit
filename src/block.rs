@@ -50,7 +50,7 @@ impl<'alloc> Column<'alloc> {
         }
 
         unsafe {
-            return Ok(slice::from_raw_parts(self.raw_nulls.data, self.raw_nulls.size));
+            return Ok(slice::from_raw_parts(self.raw_nulls.data, self.capacity()));
         }
     }
 
@@ -60,7 +60,7 @@ impl<'alloc> Column<'alloc> {
         }
 
         unsafe {
-            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.raw_nulls.size));
+            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.capacity()));
         }
     }
 
@@ -71,7 +71,7 @@ impl<'alloc> Column<'alloc> {
 
         unsafe {
             let ptr: *const T::Store = mem::transmute(self.raw.data);
-            return Ok(slice::from_raw_parts(ptr, self.raw.size));
+            return Ok(slice::from_raw_parts(ptr, self.capacity()));
         }
     }
 
@@ -82,7 +82,7 @@ impl<'alloc> Column<'alloc> {
 
         unsafe {
             let ptr: *mut T::Store = mem::transmute(self.raw.data);
-            return Ok(slice::from_raw_parts_mut(ptr, self.raw.size));
+            return Ok(slice::from_raw_parts_mut(ptr, self.capacity()));
         }
     }
 
