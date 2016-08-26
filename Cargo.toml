@@ -8,7 +8,7 @@ description = "A columnar query execution engine"
 repository = "https://github.com/mtanski/dbkit"
 
 [dependencies]
-toml = "*"
+toml = "^0.2"
 log = "^0.3"
 itertools = "^0.4"
 
