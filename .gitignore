@@ -1,1 +1,11 @@
+# Intelij
+.idea
+dbkit.iml
+
+# Vim
+*.swp
+*.swo
+
+# Build targets
 /target
+
