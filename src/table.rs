@@ -49,8 +49,7 @@ impl<'alloc> Table<'alloc> {
         self.block
             .as_mut()
             .unwrap()
-            .expand()
-            .ok_or(DBError::Unknown)
+            .add_row()
     }
 
     pub fn block_ref(&self) -> &'alloc Block {
@@ -118,6 +117,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         self.col = 0;
         // Panics if this failed
         self.row = self.table.add_row().unwrap();
+        println!("{:?}", self.row);
 
         self
     }
@@ -134,7 +134,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
             .column_mut(col)
             .ok_or(DBError::makeColumnUnknownPos(col))
             .and_then(|c| c.mut_nulls())
-            .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
+            .and_then(|nulls| { println!("{:?}", nulls) ;nulls[row] = value as u8; Ok(()) })
             .err();
 
         self.col += 1;
@@ -200,11 +200,23 @@ fn appender_row()
                 .set_u32(15)
             .done();
 
-        assert!(status.is_none(), "{}", status.unwrap());
+        assert!(status.is_none(), "Error appending rows {}", status.unwrap());
     }
 
-    match table.take() {
-        Some(block) => assert_eq!(block.rows(), 1 as RowOffset),
-        None => panic!("No block inside the table"),
-    };
+    // Block exists
+    assert!(table.block.is_some(), "No block inside table");
+
+    // Schema looks correct
+    assert_eq!(table.block_ref().schema().count(), 1);
+
+    // Expected number of rows
+    assert_eq!(table.block_ref().rows(), 2 as RowOffset);
+
+    // Verify data
+    let column = table.block_ref().column(0).unwrap();
+    let data = column.rows::<types::UInt32>().unwrap();
+    let nulls = column.nulls().unwrap();
+
+    assert!(nulls[0] == 1 && nulls[1] == 0, "Null vector incorrect");
+    assert_eq!(data[1], 15);
 }

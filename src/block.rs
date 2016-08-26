@@ -41,6 +41,8 @@ impl<'alloc> Column<'alloc> {
     }
 
     pub fn capacity(&self) -> usize {
+        println!("cap: {:?} {:?}", self.raw.size, self.attr.dtype.size_of());
+
         self.raw.size / self.attr.dtype.size_of()
     }
 
@@ -51,16 +53,6 @@ impl<'alloc> Column<'alloc> {
 
         unsafe {
             return Ok(slice::from_raw_parts(self.raw_nulls.data, self.capacity()));
-        }
-    }
-
-    pub fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
-        if !self.attr.nullable {
-            return Err(DBError::AttributeNullability(self.attr.name.clone()))
-        }
-
-        unsafe {
-            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.capacity()));
         }
     }
 
@@ -75,6 +67,16 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
+    pub fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
+        if !self.attr.nullable {
+            return Err(DBError::AttributeNullability(self.attr.name.clone()))
+        }
+
+        unsafe {
+            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.capacity()));
+        }
+    }
+
     pub fn rows_mut<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
@@ -84,6 +86,38 @@ impl<'alloc> Column<'alloc> {
             let ptr: *mut T::Store = mem::transmute(self.raw.data);
             return Ok(slice::from_raw_parts_mut(ptr, self.capacity()));
         }
+    }
+
+    pub fn set_capacity(&mut self, rows: RowOffset) -> Option<DBError> {
+        let new_size = rows * self.attr.dtype.size_of();
+
+        if self.raw.is_null() {
+            match self.allocator.allocate(new_size) {
+                Ok(chunk) => self.raw = chunk,
+                Err(e) => return Some(e)
+            }
+
+            if self.attr.nullable {
+                match self.allocator.allocate(rows) {
+                    Ok(chunk) => self.raw_nulls = chunk,
+                    Err(e) => return Some(e)
+                }
+            }
+        } else {
+            let status = self.raw.resize(new_size);
+            if status.is_some() {
+                return status;
+            }
+
+            if self.attr.nullable {
+                let nulls_status = self.raw_nulls.resize(rows);
+                if nulls_status.is_some() {
+                    return nulls_status;
+                }
+            }
+        }
+
+        None
     }
 
     pub unsafe fn raw_data(&mut self) -> *mut u8 {
@@ -145,27 +179,39 @@ impl<'b> Block<'b> {
         self.capacity
     }
 
-    pub fn set_capacity(&mut self, size: RowOffset) -> Option<DBError> {
-        if size < self.capacity {
-            for col in self.columns.iter_mut() {
-                // TODO: Resize
+    /// Grow possible row space for each column
+    pub fn set_capacity(&mut self, row_cap: RowOffset) -> Option<DBError> {
+        for ref mut col in self.columns.iter_mut() {
+            let status = col.set_capacity(row_cap);
+            if status.is_some() {
+                return status;
             }
+        }
+
+        self.capacity = row_cap;
+        if row_cap < self.rows {
+            self.rows = row_cap;
         }
 
         None
     }
 
-    pub fn expand(&mut self) -> Option<RowOffset> {
+    /// Returns rowid of the added row
+    pub fn add_row(&mut self) -> Result<RowOffset, DBError> {
         if self.capacity > self.rows {
             let rowid = self.rows;
             self.rows += 1;
-            Some(rowid)
+            Ok(rowid)
         } else {
             let rowid = self.rows;
             let new_cap = self.capacity + 1024;
-            self.set_capacity(new_cap);
-            self.rows += 1;
-            Some(rowid)
+
+            if let Some(err) = self.set_capacity(new_cap) {
+                Err(err)
+            } else {
+                self.rows += 1;
+                Ok(rowid)
+            }
         }
     }
 

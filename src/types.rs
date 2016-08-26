@@ -4,6 +4,7 @@ use std::str;
 
 use super::error::DBError;
 
+#[derive(Clone, Copy)]
 pub struct RawData {
     pub data: *mut u8,
     pub size: usize,
@@ -24,7 +25,7 @@ pub enum Type {
 
 pub trait TypeInfo {
     // FIXME:
-    type Store;
+    type Store: Copy;
     const ENUM: Type;
     const DEEP_COPY: bool = false;
 

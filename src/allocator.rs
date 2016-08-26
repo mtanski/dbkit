@@ -13,11 +13,18 @@ pub trait Allocator : Send + Sync {
     fn allocate(&self, size: usize) -> Result<RawChunk, DBError>;
     fn allocate_aligned(&self, size: usize, align: usize) -> Result<RawChunk, DBError>;
 
-    fn putback(&mut self, size: usize);
+    // Resize; will try to resize in place if possible
+    unsafe fn resize(&self, prev: *mut u8, prev_size: usize, size: usize)
+        -> Result<*mut u8, DBError>;
+    // Resize respecting alignment; will try to to resize in place if possible.
+    unsafe fn resize_aligned(&self, prev: *mut u8, prev_size: usize, size: usize, align: usize)
+        -> Result<*mut u8, DBError>;
+
+    fn putback(&self, size: usize);
 }
 
 pub struct RawChunk<'a> {
-    parent: Option<&'a mut Allocator>,
+    parent: Option<&'a Allocator>,
     pub data: *mut u8,
     pub size: usize,
     pub align: usize,
@@ -46,8 +53,18 @@ impl<'a> RawChunk<'a> {
         }
     }
 
-    fn is_null(&self) -> bool {
+    pub fn is_null(&self) -> bool {
        self.data.is_null()
+    }
+
+    pub fn resize(&mut self, size: usize) -> Option<DBError> {
+        unsafe {
+            self.parent.as_ref()
+                .ok_or(DBError::Memory)
+                .and_then(|ref p| p.resize_aligned(self.data.clone(), self.size, self.size, self.align))
+                .and_then(|ptr| {self.data = ptr; self.size = size; Ok(()) })
+                .err()
+        }
     }
 }
 
@@ -86,7 +103,33 @@ impl Allocator for HeapAllocator {
         }
     }
 
-    fn putback(&mut self, size: usize) {
+    unsafe fn resize(&self, prev: *mut u8, prev_size: usize, size: usize)
+        -> Result<*mut u8, DBError>
+    {
+        self.resize_aligned(prev, prev_size, size, MIN_ALIGN)
+    }
+
+    unsafe fn resize_aligned(&self, prev: *mut u8, prev_size: usize, size: usize, align: usize)
+        -> Result<*mut u8, DBError>
+    {
+        unsafe {
+            let nlen = heap::reallocate_inplace(prev, prev_size, size, align);
+
+            if nlen == size {
+                return Ok(prev)
+            }
+
+            let data = heap::reallocate(prev, prev_size, size, align);
+
+            if data.is_null() {
+                Ok(data)
+            } else {
+                Err(DBError::Memory)
+            }
+        }
+    }
+
+    fn putback(&self, size: usize) {
         panic!("Global heap doesn't keep track of memory usage")
     }
 }
