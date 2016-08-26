@@ -5,6 +5,8 @@ authors = ["Milosz Tanski <milosz@gmail.com>"]
 license = "Apache2.0/MIT"
 description = "A columnar query execution engine"
 
+repository = "https://github.com/mtanski/dbkit"
+
 [dependencies]
 toml = "*"
 log = "^0.3"
