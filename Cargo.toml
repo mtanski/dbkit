@@ -2,7 +2,7 @@
 name = "dbkit-engine"
 version = "0.0.1"
 authors = ["Milosz Tanski <milosz@gmail.com>"]
-license = "Apache2.0/MIT"
+license = "Apache-2.0/MIT"
 description = "A columnar query execution engine"
 
 repository = "https://github.com/mtanski/dbkit"
