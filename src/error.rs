@@ -3,15 +3,18 @@
 use std::fmt;
 use std::io::{Error as IOError};
 
+// Execution errors
 pub enum DBError {
     Unknown,
-    //
+    /// An underlying IO operation caused an error
     IO(IOError),
-    //
+    // Unknown type (parsing external type information)
     UnknownType(String),
-    //
+    /// Referencing a missing schema attribute (name or position)
     AttributeMissing(String),
+    /// Mismatched expectation about attributes nullability
     AttributeNullability(String),
+    /// Mismatched expectation about attribute types
     AttributeType(String),
     /// Unknown memory allocation error
     Memory,
@@ -20,11 +23,11 @@ pub enum DBError {
 }
 
 impl DBError {
-    pub fn makeColumnNotNullable(name: String) -> DBError {
+    pub fn make_column_not_nullable(name: String) -> DBError {
         DBError::AttributeNullability(name)
     }
 
-    pub fn makeColumnUnknownPos(pos: usize) -> DBError {
+    pub fn make_column_unknown_pos(pos: usize) -> DBError {
         DBError::AttributeMissing(format!("(pos: {})", pos))
     }
 }

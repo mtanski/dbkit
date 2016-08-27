@@ -132,5 +132,6 @@ impl Allocator for HeapAllocator {
     }
 }
 
+/// A instance of default allocator when you don't care memory accounting, limitation
 pub static GLOBAL: HeapAllocator = HeapAllocator{};
 

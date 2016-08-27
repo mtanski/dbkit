@@ -21,6 +21,7 @@ impl Attribute {
     }
 }
 
+/// Describes the attributes and organization of data
 #[derive(Clone)]
 pub struct Schema {
     attrs: Vec<Attribute>,
@@ -33,6 +34,7 @@ pub struct AttributeIter<'a> {
 
 impl Schema {
     pub fn from_slice(attrs: &[Attribute]) -> Schema {
+        // TODO: Check for duplicate names
         let mut av = Vec::new();
         av.extend_from_slice(attrs);
 
@@ -40,14 +42,16 @@ impl Schema {
     }
 
     pub fn from_vec(attrs: Vec<Attribute>) -> Schema {
+        // TODO: Check for duplicate names
         Schema { attrs: attrs }
     }
 
-    /// Create a single Attribute schema
+    /// Create a single Attribute schema from an external attribute
     pub fn from_attr(attr: Attribute) -> Schema {
         Schema { attrs: vec!(attr) }
     }
 
+    /// Create a single Attribute schema
     pub fn make_one_attr(name: &str, nullable: bool, dtype: Type) -> Schema {
         Schema::from_attr(Attribute::new(name, nullable, dtype))
     }

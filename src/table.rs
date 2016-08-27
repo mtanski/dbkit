@@ -4,6 +4,10 @@ use super::error::DBError;
 use super::schema::Schema;
 use super::types::{TypeInfo};
 
+/// Abstraction on top of a Block for easy construction and modification of contained data.
+///
+/// The container assumes that all operations on the block are safe and schema type conforming. In
+/// case of errors it simply panics.
 pub struct Table<'alloc> {
     block: Option<Block<'alloc>>,
 }
@@ -130,7 +134,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
 
         self.error = self.table
             .column_mut(col)
-            .ok_or(DBError::makeColumnUnknownPos(col))
+            .ok_or(DBError::make_column_unknown_pos(col))
             .and_then(|c| c.mut_nulls())
             .and_then(|nulls| { ;nulls[row] = value as u8; Ok(()) })
             .err();
@@ -151,7 +155,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
 
         self.error = self.table
             .column_mut(col)
-            .ok_or(DBError::makeColumnUnknownPos(col))
+            .ok_or(DBError::make_column_unknown_pos(col))
             .and_then(|c| c.rows_mut::<T>())
             .and_then(|rows| { rows[row] = value; Ok(())})
             .err();

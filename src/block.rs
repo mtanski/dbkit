@@ -15,6 +15,10 @@ pub type MutBoolBitmap<'a> = &'a mut [u8];
 pub type RowOffset = usize;
 
 
+/// Typed Data Column. Contains a vector of column rows, and optionally a nul vector.
+///
+/// Knows its capacity but not size, has no concept of current. Those properties are fulfilled by
+/// it's parent container (types such as Block).
 pub struct Column<'alloc> {
     allocator: &'alloc Allocator,
     attr: Attribute,
@@ -22,10 +26,6 @@ pub struct Column<'alloc> {
     raw: RawChunk<'alloc>,
 }
 
-/// Typed Data Column. Contains a vector of column rows, and optionally a nul vector.
-///
-/// Knows its capacity but not size (that's up to the parent container). Has no concept of current
-/// position.
 impl<'alloc> Column<'alloc> {
     fn new(a: &'alloc Allocator, attr: Attribute) -> Column<'alloc> {
         Column {
@@ -40,10 +40,12 @@ impl<'alloc> Column<'alloc> {
         &self.attr
     }
 
+    /// Row capacity
     pub fn capacity(&self) -> usize {
         self.raw.size / self.attr.dtype.size_of()
     }
 
+    /// Slice representing the null bitmap
     pub fn nulls(&self) -> Result<BoolBitmap, DBError> {
         if !self.attr.nullable {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
@@ -54,6 +56,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
+    /// Slice representing the data row data
     pub fn rows<T: TypeInfo>(&self) -> Result<&[T::Store], DBError>  {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
@@ -86,6 +89,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
+    /// Change the capacity of the Column
     pub fn set_capacity(&mut self, rows: RowOffset) -> Option<DBError> {
         let new_size = rows * self.attr.dtype.size_of();
 
@@ -118,17 +122,24 @@ impl<'alloc> Column<'alloc> {
         None
     }
 
+    /// Pointer to the beginning of the raw row data
     pub unsafe fn raw_data(&mut self) -> *mut u8 {
         self.raw.data
     }
 }
 
+/// A read-only view into data conforming to a pre-defined schema. This view may be backed by a
+/// container that owns it data, borrows or aliases somebody elses data.
 pub trait View<'v> {
     fn schema(&self) -> &Schema;
     fn column(&'v self, pos: usize) -> Option<&'v Column>;
+
+    /// Number of rows
     fn rows(&self) -> RowOffset;
 }
 
+/// A container for column data conforming to a pre-defined schema. This container is the owner of
+/// the columns (and their data)
 pub struct Block<'b> {
     allocator: &'b Allocator,
     schema: Schema,
@@ -213,7 +224,7 @@ impl<'b> Block<'b> {
         }
     }
 
-    /// panics on out of bounds column
+    /// Mutable reference to column and its data.
     pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'b>> {
         self.columns.get_mut(pos)
     }
