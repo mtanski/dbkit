@@ -112,20 +112,18 @@ impl Allocator for HeapAllocator {
     unsafe fn resize_aligned(&self, prev: *mut u8, prev_size: usize, size: usize, align: usize)
         -> Result<*mut u8, DBError>
     {
-        unsafe {
-            let nlen = heap::reallocate_inplace(prev, prev_size, size, align);
+        let nlen = heap::reallocate_inplace(prev, prev_size, size, align);
 
-            if nlen == size {
-                return Ok(prev)
-            }
+        if nlen == size {
+            return Ok(prev)
+        }
 
-            let data = heap::reallocate(prev, prev_size, size, align);
+        let data = heap::reallocate(prev, prev_size, size, align);
 
-            if data.is_null() {
-                Ok(data)
-            } else {
-                Err(DBError::Memory)
-            }
+        if data.is_null() {
+            Ok(data)
+        } else {
+            Err(DBError::Memory)
         }
     }
 

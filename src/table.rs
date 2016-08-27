@@ -1,9 +1,8 @@
-
-use super::allocator::{self, Allocator};
+use super::allocator::{Allocator};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
-use super::types::{self, Type};
+use super::types::{TypeInfo};
 
 pub struct Table<'alloc> {
     block: Option<Block<'alloc>>,
@@ -117,7 +116,6 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         self.col = 0;
         // Panics if this failed
         self.row = self.table.add_row().unwrap();
-        println!("{:?}", self.row);
 
         self
     }
@@ -134,14 +132,16 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
             .column_mut(col)
             .ok_or(DBError::makeColumnUnknownPos(col))
             .and_then(|c| c.mut_nulls())
-            .and_then(|nulls| { println!("{:?}", nulls) ;nulls[row] = value as u8; Ok(()) })
+            .and_then(|nulls| { ;nulls[row] = value as u8; Ok(()) })
             .err();
 
         self.col += 1;
         self
     }
 
-    pub fn set<T: types::TypeInfo>(mut self, value: T::Store) -> TableAppender<'alloc, 't> {
+    // This is a pretty ugly workaround
+    pub fn set<T: TypeInfo>(mut self, value: T::Store) -> TableAppender<'alloc, 't>
+    {
         if self.error.is_some() {
             return self
         }
@@ -159,64 +159,65 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         self.col += 1;
         self
     }
-
-    pub fn set_u32(self, value: u32) -> TableAppender<'alloc, 't> {
-        self.set::<types::UInt32>(value)
-    }
-
-    pub fn set_u64(self, value: u64) -> TableAppender<'alloc, 't> {
-        self.set::<types::UInt64>(value)
-    }
-
-    pub fn set_i32(self, value: i32) -> TableAppender<'alloc, 't> {
-        self.set::<types::Int32>(value)
-    }
-
-    pub fn set_i64(self, value: i64) -> TableAppender<'alloc, 't> {
-        self.set::<types::Int64>(value)
-    }
-
-    pub fn set_f32(self, value: f32) -> TableAppender<'alloc, 't> {
-        self.set::<types::Float32>(value)
-    }
-
-    pub fn set_f64(self, value: f64) -> TableAppender<'alloc, 't> {
-        self.set::<types::Float64>(value)
-    }
 }
 
-// Append one row to table via TableAppender, verify that underlying block has one row.
-#[test]
-fn appender_row()
-{
-    let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
-    let mut table = Table::new(&allocator::GLOBAL, &schema, None);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use allocator;
+    use block::*;
+    use error::DBError;
+    use schema::*;
+    use types::*;
 
+    // Append one row to table via TableAppender, verify that underlying block has one row.
+    #[test]
+    fn appender_rows()
     {
-        let status = TableAppender::new(&mut table)
-            .add_row()
-                .set_null(true)
-            .add_row()
-                .set_u32(15)
-            .done();
+        let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
+        let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
-        assert!(status.is_none(), "Error appending rows {}", status.unwrap());
+        {
+            let status = TableAppender::new(&mut table)
+                .add_row().set_null(true)
+                .add_row().set::<UInt32>(15)
+                .done();
+
+            assert!(status.is_none(), "Error appending rows {}", status.unwrap());
+        }
+
+        // Block exists
+        assert!(table.block.is_some(), "No block inside table");
+
+        // Schema looks correct
+        assert_eq!(table.block_ref().schema().count(), 1);
+
+        // Expected number of rows
+        assert_eq!(table.block_ref().rows(), 2 as RowOffset);
+
+        // Verify data
+        let column = table.block_ref().column(0).unwrap();
+        let data = column.rows::<UInt32>().unwrap();
+        let nulls = column.nulls().unwrap();
+
+        assert!(nulls[0] == 1 && nulls[1] == 0, "Null vector incorrect");
+        assert_eq!(data[1], 15);
     }
 
-    // Block exists
-    assert!(table.block.is_some(), "No block inside table");
+    #[test]
+    fn appender_end_of_row()
+    {
+        let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
+        let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
-    // Schema looks correct
-    assert_eq!(table.block_ref().schema().count(), 1);
+        let status = TableAppender::new(&mut table)
+            .add_row().set_null(true).set::<UInt32>(15)
+            .done();
 
-    // Expected number of rows
-    assert_eq!(table.block_ref().rows(), 2 as RowOffset);
-
-    // Verify data
-    let column = table.block_ref().column(0).unwrap();
-    let data = column.rows::<types::UInt32>().unwrap();
-    let nulls = column.nulls().unwrap();
-
-    assert!(nulls[0] == 1 && nulls[1] == 0, "Null vector incorrect");
-    assert_eq!(data[1], 15);
+        match status {
+            Some(DBError::AttributeMissing(_)) => (), // nop
+            Some(e) => assert!(false, "Unexpected error {}", e),
+            None => assert!(false, "Expected error"),
+        }
+    }
 }

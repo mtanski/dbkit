@@ -29,7 +29,8 @@ pub trait TypeInfo {
     const ENUM: Type;
     const DEEP_COPY: bool = false;
 
-    // RUST SUCKS: cannot use mem::size_of::<Self::Store>()
+    // RUST is frustrating
+    // cannot use mem::size_of::<Self::Store>()
     // because apparently size_of is not constant.
     fn size_of(&self) -> usize {
         mem::size_of::<Self::Store>()
