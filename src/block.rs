@@ -41,8 +41,6 @@ impl<'alloc> Column<'alloc> {
     }
 
     pub fn capacity(&self) -> usize {
-        println!("cap: {:?} {:?}", self.raw.size, self.attr.dtype.size_of());
-
         self.raw.size / self.attr.dtype.size_of()
     }
 
