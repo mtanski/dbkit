@@ -2,6 +2,8 @@
 
 # dbkit
 
+[![Join the chat at https://gitter.im/rust-dbkit/Lobby](https://badges.gitter.im/rust-dbkit/Lobby.svg)](https://gitter.im/rust-dbkit/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Columnar query processing engine written in Rust.
 dbkit is not a standalone database, rather it a library that be leveraged in other poejcts.
 
