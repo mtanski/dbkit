@@ -90,7 +90,7 @@ impl<'a> Drop for OwnedChunk<'a> {
             }
 
             let parent = self.parent.take();
-            if let Some(mut p) = parent {
+            if let Some(p) = parent {
                 p.putback(self);
             } else {
                 // Optimization for HeapAllocator

@@ -6,7 +6,7 @@ use std::slice;
 
 // DBKit
 use super::allocator::{Allocator, OwnedChunk};
-use super::types::{self, TypeInfo};
+use super::types::TypeInfo;
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
 
@@ -15,7 +15,7 @@ pub type MutBoolBitmap<'a> = &'a mut [u8];
 pub type RowOffset = usize;
 
 // FIXME: empty array of a typed that's aligned the same way as allocator::MIN_ALIGN
-static empty_array: [u8; 0] = [];
+static EMPTY_ARRAY: [u8; 1] = [0];
 
 /// Trait representing a reference to column data.
 /// Data can be owned by current object or references from another one.
@@ -51,10 +51,10 @@ pub fn column_rows<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<&'c [T::Store]
         let mut col_ptr = col.rows_ptr();
 
         if col_ptr.is_null() {
-            col_ptr = &empty_array[0] as *const u8
+            col_ptr = &EMPTY_ARRAY[0] as *const u8
         }
 
-        let typed_ptr: *const T::Store = mem::transmute(col.rows_ptr());
+        let typed_ptr: *const T::Store = mem::transmute(col_ptr);
         Ok(slice::from_raw_parts(typed_ptr, rows))
     }
 }
@@ -71,7 +71,7 @@ pub fn column_nulls<'c>(col: &'c RefColumn) ->  Result<BoolBitmap<'c>, DBError> 
         let mut nulls_ptr = col.nulls_ptr();
 
         if nulls_ptr.is_null() {
-            nulls_ptr = &empty_array[0] as *const u8
+            nulls_ptr = &EMPTY_ARRAY[0] as *const u8
         }
 
         return Ok(slice::from_raw_parts(nulls_ptr, rows));
@@ -115,7 +115,7 @@ pub fn alias_column<'a>(src: &'a RefColumn<'a>, offset: RowOffset, rows: RowOffs
         let raw = src.nulls_raw_slice();
         &raw[offset .. offset + rows]
     } else {
-        &empty_array
+        &EMPTY_ARRAY
     };
 
     Ok(AliasColumn {
@@ -177,13 +177,13 @@ impl<'alloc> RefColumn<'alloc> for Column<'alloc> {
     fn rows_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw.data.as_ref()
             .map(|f| f as &'alloc [u8])
-            .unwrap_or(&empty_array)
+            .unwrap_or(&EMPTY_ARRAY)
     }
 
     fn nulls_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw_nulls.data.as_ref()
             .map(|f| f as &'alloc [u8])
-            .unwrap_or(&empty_array)
+            .unwrap_or(&EMPTY_ARRAY)
     }
 }
 
@@ -202,12 +202,10 @@ impl<'alloc> Column<'alloc> {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }
 
-        unsafe {
-            if let Some(ref mut slice) = self.raw_nulls.data {
-                return Ok(slice)
-            } else {
-                return Err(DBError::RowOutOfBounds)
-            }
+        if let Some(ref mut slice) = self.raw_nulls.data {
+            return Ok(slice)
+        } else {
+            return Err(DBError::RowOutOfBounds)
         }
     }
 
