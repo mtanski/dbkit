@@ -1,7 +1,6 @@
-[![Build Status](https://travis-ci.org/mtanski/dbkit.svg?branch=master)](https://travis-ci.org/mtanski/dbkit)
-
 # dbkit
 
+[![Build Status](https://travis-ci.org/mtanski/dbkit.svg?branch=master)](https://travis-ci.org/mtanski/dbkit)
 [![Join the chat at https://gitter.im/rust-dbkit/Lobby](https://badges.gitter.im/rust-dbkit/Lobby.svg)](https://gitter.im/rust-dbkit/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Columnar query processing engine written in Rust.
