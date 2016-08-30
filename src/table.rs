@@ -13,14 +13,14 @@ pub struct Table<'alloc> {
 }
 
 impl<'alloc> View<'alloc> for Table<'alloc> {
-    fn schema(&self) -> &Schema {
+    fn schema(&'alloc self) -> &'alloc Schema {
         self.block
             .as_ref()
             .unwrap()
             .schema()
     }
 
-    fn column(&self, pos: usize) -> Option<&'alloc Column> {
+    fn column(&'alloc self, pos: usize) -> Option<&RefColumn> {
         self.block
             .as_ref()
             .unwrap()
@@ -201,8 +201,8 @@ mod tests {
 
         // Verify data
         let column = table.block_ref().column(0).unwrap();
-        let data = column.rows::<UInt32>().unwrap();
-        let nulls = column.nulls().unwrap();
+        let data = column_rows::<UInt32>(column).unwrap();
+        let nulls = column_nulls(column).unwrap();
 
         assert!(nulls[0] == 1 && nulls[1] == 0, "Null vector incorrect");
         assert_eq!(data[1], 15);

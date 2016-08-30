@@ -2,6 +2,7 @@
 #![feature(associated_type_defaults)]
 #![feature(alloc)]
 #![feature(heap_api)]
+#![feature(question_mark)]
 
 extern crate alloc;
 

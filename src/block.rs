@@ -5,8 +5,8 @@ use std::mem;
 use std::slice;
 
 // DBKit
-use super::allocator::{Allocator, RawChunk};
-use super::types::{TypeInfo};
+use super::allocator::{Allocator, OwnedChunk};
+use super::types::{self, TypeInfo};
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
 
@@ -14,6 +14,69 @@ pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
 pub type RowOffset = usize;
 
+// FIXME: empty array of a typed that's aligned the same way as allocator::MIN_ALIGN
+static empty_array: [u8; 0] = [];
+
+/// Trait representing a reference to column data.
+/// Data can be owned by current object or references from another one.
+pub trait RefColumn<'re> {
+    fn attribute(&self) -> &Attribute;
+    fn capacity(&self) -> usize;
+
+    /// Will panic if there's no row data
+    fn rows_raw_slice(&'re self) -> &'re [u8];
+    /// Will panic if there's no null data
+    fn nulls_raw_slice(&'re self) -> &'re [u8];
+
+    /// Pointer to the beginning of the raw row data.
+    /// ptr can be nil
+    unsafe fn rows_ptr(&self) -> *const u8;
+    /// Pointer to the beginning of the raw row data.
+    /// ptr can be nil
+    unsafe fn nulls_ptr(&self) -> *const u8;
+}
+
+/// Slice representing the data row data
+///
+/// RUST FRUSTRATION: wish this could be part of RefColumn
+pub fn column_rows<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<&'c [T::Store], DBError> {
+    let attr = col.attribute();
+    let rows = col.capacity();
+
+    if attr.dtype != T::ENUM {
+        return Err(DBError::AttributeType(attr.name.clone()))
+    }
+
+    unsafe {
+        let mut col_ptr = col.rows_ptr();
+
+        if col_ptr.is_null() {
+            col_ptr = &empty_array[0] as *const u8
+        }
+
+        let typed_ptr: *const T::Store = mem::transmute(col.rows_ptr());
+        Ok(slice::from_raw_parts(typed_ptr, rows))
+    }
+}
+
+pub fn column_nulls<'c>(col: &'c RefColumn) ->  Result<BoolBitmap<'c>, DBError> {
+    let attr = col.attribute();
+    let rows = col.capacity();
+
+    if !attr.nullable {
+        return Err(DBError::AttributeNullability(attr.name.clone()))
+    }
+
+    unsafe {
+        let mut nulls_ptr = col.nulls_ptr();
+
+        if nulls_ptr.is_null() {
+            nulls_ptr = &empty_array[0] as *const u8
+        }
+
+        return Ok(slice::from_raw_parts(nulls_ptr, rows));
+    }
+}
 
 /// Typed Data Column. Contains a vector of column rows, and optionally a nul vector.
 ///
@@ -22,8 +85,106 @@ pub type RowOffset = usize;
 pub struct Column<'alloc> {
     allocator: &'alloc Allocator,
     attr: Attribute,
-    raw_nulls: RawChunk<'alloc>,
-    raw: RawChunk<'alloc>,
+    raw_nulls: OwnedChunk<'alloc>,
+    raw: OwnedChunk<'alloc>,
+}
+
+/// Typed Data Column that references another column
+pub struct AliasColumn<'parent> {
+    attr: Attribute,
+    raw_nulls: &'parent [u8],
+    raw: &'parent [u8],
+}
+
+/// Create another read only alias of a column
+pub fn alias_column<'a>(src: &'a RefColumn<'a>, offset: RowOffset, rows: RowOffset)
+    -> Result<AliasColumn<'a>, DBError>
+{
+    let size_of = src.attribute().dtype.size_of();
+    let start = offset * size_of;
+    let len = rows + size_of;
+
+    if offset + rows > src.capacity() {
+        return Err(DBError::RowOutOfBounds)
+    }
+
+    let raw = src.rows_raw_slice();
+    let col = &raw[start .. start + len];
+
+    let nulls = if src.attribute().nullable {
+        let raw = src.nulls_raw_slice();
+        &raw[offset .. offset + rows]
+    } else {
+        &empty_array
+    };
+
+    Ok(AliasColumn {
+        attr: src.attribute().clone(),
+        raw: col,
+        raw_nulls: nulls,
+    })
+}
+
+impl<'parent> RefColumn<'parent> for AliasColumn<'parent> {
+    fn attribute(&self) -> &Attribute {
+        &self.attr
+    }
+
+    /// Row capacity
+    fn capacity(&self) -> usize {
+        self.raw.len() / self.attr.dtype.size_of()
+    }
+
+    /// Pointer to the beginning of the raw row data
+    unsafe fn rows_ptr(&self) -> *const u8 {
+        self.raw.as_ptr()
+    }
+
+    /// Pointer to the beginning of the raw row data
+    unsafe fn nulls_ptr(&self) -> *const u8 {
+        self.raw_nulls.as_ptr()
+    }
+
+    fn rows_raw_slice(&'parent self) -> &'parent [u8] {
+        self.raw
+    }
+
+    fn nulls_raw_slice(&'parent self) -> &'parent [u8] {
+        self.raw_nulls
+    }
+}
+
+impl<'alloc> RefColumn<'alloc> for Column<'alloc> {
+    fn attribute(&self) -> &Attribute {
+        &self.attr
+    }
+
+    /// Row capacity
+    fn capacity(&self) -> usize {
+        self.raw.len() / self.attr.dtype.size_of()
+    }
+
+    /// Pointer to the beginning of the raw row data
+    unsafe fn rows_ptr(&self) -> *const u8 {
+        self.raw.as_ptr()
+    }
+
+    /// Pointer to the beginning of the raw row data
+    unsafe fn nulls_ptr(&self) -> *const u8 {
+        self.raw_nulls.as_ptr()
+    }
+
+    fn rows_raw_slice(&'alloc self) -> &'alloc [u8] {
+        self.raw.data.as_ref()
+            .map(|f| f as &'alloc [u8])
+            .unwrap_or(&empty_array)
+    }
+
+    fn nulls_raw_slice(&'alloc self) -> &'alloc [u8] {
+        self.raw_nulls.data.as_ref()
+            .map(|f| f as &'alloc [u8])
+            .unwrap_or(&empty_array)
+    }
 }
 
 impl<'alloc> Column<'alloc> {
@@ -31,40 +192,8 @@ impl<'alloc> Column<'alloc> {
         Column {
             allocator: a,
             attr: attr,
-            raw_nulls: RawChunk::empty(),
-            raw: RawChunk::empty(),
-        }
-    }
-
-    pub fn attribute(&self) -> &Attribute {
-        &self.attr
-    }
-
-    /// Row capacity
-    pub fn capacity(&self) -> usize {
-        self.raw.size / self.attr.dtype.size_of()
-    }
-
-    /// Slice representing the null bitmap
-    pub fn nulls(&self) -> Result<BoolBitmap, DBError> {
-        if !self.attr.nullable {
-            return Err(DBError::AttributeNullability(self.attr.name.clone()))
-        }
-
-        unsafe {
-            return Ok(slice::from_raw_parts(self.raw_nulls.data, self.capacity()));
-        }
-    }
-
-    /// Slice representing the data row data
-    pub fn rows<T: TypeInfo>(&self) -> Result<&[T::Store], DBError>  {
-        if self.attr.dtype != T::ENUM {
-            return Err(DBError::AttributeType(self.attr.name.clone()))
-        }
-
-        unsafe {
-            let ptr: *const T::Store = mem::transmute(self.raw.data);
-            return Ok(slice::from_raw_parts(ptr, self.capacity()));
+            raw_nulls: OwnedChunk::empty(),
+            raw: OwnedChunk::empty(),
         }
     }
 
@@ -74,7 +203,11 @@ impl<'alloc> Column<'alloc> {
         }
 
         unsafe {
-            return Ok(slice::from_raw_parts_mut(self.raw_nulls.data, self.capacity()));
+            if let Some(ref mut slice) = self.raw_nulls.data {
+                return Ok(slice)
+            } else {
+                return Err(DBError::RowOutOfBounds)
+            }
         }
     }
 
@@ -84,8 +217,12 @@ impl<'alloc> Column<'alloc> {
         }
 
         unsafe {
-            let ptr: *mut T::Store = mem::transmute(self.raw.data);
-            return Ok(slice::from_raw_parts_mut(ptr, self.capacity()));
+            let ptr: *mut T::Store = mem::transmute(self.raw.as_mut_ptr());
+            if ptr.is_null() {
+                return Err(DBError::RowOutOfBounds)
+            } else {
+                return Ok(slice::from_raw_parts_mut(ptr, self.capacity()));
+            }
         }
     }
 
@@ -121,21 +258,74 @@ impl<'alloc> Column<'alloc> {
 
         None
     }
-
-    /// Pointer to the beginning of the raw row data
-    pub unsafe fn raw_data(&mut self) -> *mut u8 {
-        self.raw.data
-    }
 }
 
 /// A read-only view into data conforming to a pre-defined schema. This view may be backed by a
 /// container that owns it data, borrows or aliases somebody elses data.
 pub trait View<'v> {
-    fn schema(&self) -> &Schema;
-    fn column(&'v self, pos: usize) -> Option<&'v Column>;
+    fn schema(&'v self) -> &'v Schema;
+    fn column(&'v self, pos: usize) -> Option<&'v RefColumn<'v>>;
 
     /// Number of rows
     fn rows(&self) -> RowOffset;
+}
+
+/// An implementation of a View that doesn't "own" the data but aliases it
+pub struct RefView<'a> {
+    schema: Schema,
+    columns: Vec<AliasColumn<'a>>,
+    rows: RowOffset,
+}
+
+/// Take a view and create a vector of column aliases
+pub fn alias_columns<'a>(src: &'a View<'a>, offset: RowOffset, rows: RowOffset)
+    -> Result<Vec<AliasColumn<'a>>, DBError>
+{
+    let count = src.schema().count();
+    let mut out: Vec<AliasColumn> = Vec::with_capacity(count);
+
+    for pos in 0 .. count {
+        let col = alias_column(src.column(pos).unwrap(), offset, rows)?;
+        out.push(col);
+    }
+
+    Ok(out)
+}
+
+impl<'a> View<'a> for RefView<'a> {
+    fn schema(&'a self) -> &'a Schema {
+        &self.schema
+    }
+
+    fn column(&'a self, pos: usize) -> Option<&RefColumn> {
+        self.columns.get(pos)
+            .map(|c| c as &RefColumn)
+    }
+
+    fn rows(&self) -> RowOffset {
+        self.rows
+    }
+}
+
+impl<'a> RefView<'a> {
+
+}
+
+// Create window into another view
+pub fn window_alias<'a>(src: &'a View<'a>, offset: RowOffset, len: RowOffset)
+    -> Result<RefView<'a>, DBError>
+{
+    if offset + len <= src.rows() {
+        Err(DBError::RowOutOfBounds)
+    } else {
+        let schema = src.schema();
+
+        Ok(RefView {
+            schema: schema.clone(),
+            rows: len,
+            columns: alias_columns(src, offset, len)?,
+        })
+    }
 }
 
 /// A container for column data conforming to a pre-defined schema. This container is the owner of
@@ -149,17 +339,13 @@ pub struct Block<'b> {
 }
 
 impl<'b> View<'b> for Block<'b> {
-    fn schema(& self) -> &Schema {
+    fn schema(&'b self) -> &'b Schema {
         &self.schema
     }
 
-    fn column(&'b self, pos: usize) -> Option<&'b Column> {
-        if pos < self.columns.len() {
-            let col: &Column = &self.columns[pos];
-            Some(col)
-        } else {
-            None
-        }
+    fn column(&'b self, pos: usize) -> Option<&RefColumn> {
+        self.columns.get(pos)
+            .map(|c| c as &RefColumn)
     }
 
     fn rows(&self) -> RowOffset {

@@ -1,38 +1,10 @@
 // vim : set ts=4 sw=4 et :
 
 use std::ptr;
+use std::slice;
 use alloc::heap;
 
 use super::error::DBError;
-
-/// Allocator trait, used through out the operations in dbkit.
-///
-///
-/// Allocators have to maintain their own synchornization
-pub trait Allocator : Send + Sync {
-    fn allocate(&self, size: usize) -> Result<RawChunk, DBError>;
-    fn allocate_aligned(&self, size: usize, align: usize) -> Result<RawChunk, DBError>;
-
-    // Resize; will try to resize in place if possible
-    unsafe fn resize(&self, prev: *mut u8, prev_size: usize, size: usize)
-        -> Result<*mut u8, DBError>;
-    // Resize respecting alignment; will try to to resize in place if possible.
-    unsafe fn resize_aligned(&self, prev: *mut u8, prev_size: usize, size: usize, align: usize)
-        -> Result<*mut u8, DBError>;
-
-    fn putback(&self, size: usize);
-}
-
-pub struct RawChunk<'a> {
-    parent: Option<&'a Allocator>,
-    pub data: *mut u8,
-    pub size: usize,
-    pub align: usize,
-}
-
-
-/// Simple heap allocator without memory tracking
-pub struct HeapAllocator { }
 
 /// Minimum alignment for platform.
 ///
@@ -43,95 +15,145 @@ pub struct HeapAllocator { }
 // const MIN_ALIGN: usize = mem::size_of::<usize>();
 const MIN_ALIGN: usize = 32;
 
-impl<'a> RawChunk<'a> {
-    pub fn empty() -> RawChunk<'a> {
-        return RawChunk {
+/// Allocator trait, used through out the operations in dbkit.
+///
+/// Allocators have to maintain their own synchornization
+pub trait Allocator : Send + Sync {
+    fn allocate(&self, size: usize) -> Result<OwnedChunk, DBError>;
+    fn allocate_aligned(&self, size: usize, align: usize) -> Result<OwnedChunk, DBError>;
+
+    /// Resize; will try to resize in place if possible
+    unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError>;
+
+    // TODO: take in ChunkData & align
+    fn putback(&self, data: &mut OwnedChunk);
+}
+
+pub type RefChunk<'a> = &'a mut [u8];
+
+/// Chunk with an allocator owner
+pub struct OwnedChunk<'a> {
+    parent: Option<&'a Allocator>,
+    pub data: Option<&'a mut[u8]>,
+    pub align: usize,
+}
+
+impl<'a> OwnedChunk<'a> {
+    pub fn empty() -> OwnedChunk<'static> {
+        return OwnedChunk {
             parent: None,
-            data: ptr::null_mut(),
-            size: 0,
+            data: None,
             align: MIN_ALIGN,
         }
     }
 
     pub fn is_null(&self) -> bool {
-       self.data.is_null()
+        self.data.is_none()
     }
 
+    pub fn len(&self) -> usize {
+        self.data.as_ref()
+            .map(|ref slice| slice.len())
+            .unwrap_or(0)
+    }
+
+    pub unsafe fn as_ptr(&self) -> *const u8 {
+        self.data.as_ref()
+            .map(|ref slice| slice.as_ptr())
+            .unwrap_or(ptr::null())
+    }
+
+    pub unsafe fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.data.as_mut()
+            .map(|ref mut slice| slice.as_mut_ptr())
+            .unwrap_or(ptr::null_mut())
+    }
+
+    /// Attempt to resize the chunk. If possible it will attempt to resize in-place, if not possible
+    /// it will create new alloc and copy the old data.
     pub fn resize(&mut self, size: usize) -> Option<DBError> {
         unsafe {
-            self.parent.as_ref()
-                .ok_or(DBError::Memory)
-                .and_then(|ref p| p.resize_aligned(self.data.clone(), self.size, self.size, self.align))
-                .and_then(|ptr| {self.data = ptr; self.size = size; Ok(()) })
-                .err()
+            if let Some(allocator) = self.parent {
+                return allocator.resize(self, size);
+            }
+
+            Some(DBError::Memory)
         }
     }
 }
 
-impl<'a> Drop for RawChunk<'a> {
+impl<'a> Drop for OwnedChunk<'a> {
     fn drop(&mut self) {
-        if !self.is_null() {
-            unsafe {
-                heap::deallocate(self.data, self.size, self.align);
+        unsafe {
+            if self.data.is_none() {
+                return;
             }
 
-            if let Some(ref mut p) = self.parent {
-                p.putback(self.size);
+            let parent = self.parent.take();
+            if let Some(mut p) = parent {
+                p.putback(self);
+            } else {
+                // Optimization for HeapAllocator
+                heap::deallocate(self.as_mut_ptr(), self.len(), self.align);
             }
         }
     }
 }
+
+/// Simple heap allocator without memory tracking
+pub struct HeapAllocator { }
+
 
 unsafe impl Send for HeapAllocator{}
 unsafe impl Sync for HeapAllocator{}
 
+/// A instance of default allocator when you don't care memory accounting, limitation
+pub static GLOBAL: HeapAllocator = HeapAllocator{};
+
 /// Simple heap allocator that delegates to alloc::heap
 impl Allocator for HeapAllocator {
-    fn allocate(&self, size: usize) -> Result<RawChunk, DBError> {
+    fn allocate(&self, size: usize) -> Result<OwnedChunk, DBError> {
         self.allocate_aligned(size, MIN_ALIGN)
     }
 
-    fn allocate_aligned(&self, size: usize, align: usize) -> Result<RawChunk, DBError> {
+    fn allocate_aligned(&self, size: usize, align: usize) -> Result<OwnedChunk, DBError> {
         unsafe {
             let data = heap::allocate(size, align);
-            if !data.is_null() {
+
+            if data.is_null() {
+                return Err(DBError::Memory);
+            }
+
+            let slice = slice::from_raw_parts_mut::<u8>(data, size);
+
+            Ok(OwnedChunk {
                 // There's no tracking of memory here
-                return Ok(RawChunk { parent: None, data: data, size: size, align: align});
-            } else {
-                return Err(DBError::Memory)
+                parent: None,
+                data: Some(slice),
+                align: align,
+            })
+        }
+    }
+
+    unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError>
+    {
+        let mut data = prev.as_mut_ptr();
+
+        let nlen = heap::reallocate_inplace(data, prev.len(), size, prev.align);
+
+        if nlen != size {
+            data = heap::reallocate(data, prev.len(), size, prev.align);
+            if data.is_null() {
+                return Some(DBError::Memory)
             }
         }
+
+        prev.data = Some(slice::from_raw_parts_mut::<u8>(data, size));
+        None
     }
 
-    unsafe fn resize(&self, prev: *mut u8, prev_size: usize, size: usize)
-        -> Result<*mut u8, DBError>
-    {
-        self.resize_aligned(prev, prev_size, size, MIN_ALIGN)
-    }
-
-    unsafe fn resize_aligned(&self, prev: *mut u8, prev_size: usize, size: usize, align: usize)
-        -> Result<*mut u8, DBError>
-    {
-        let nlen = heap::reallocate_inplace(prev, prev_size, size, align);
-
-        if nlen == size {
-            return Ok(prev)
-        }
-
-        let data = heap::reallocate(prev, prev_size, size, align);
-
-        if data.is_null() {
-            Ok(data)
-        } else {
-            Err(DBError::Memory)
-        }
-    }
-
-    fn putback(&self, size: usize) {
+    fn putback(&self, chunk: &mut OwnedChunk) {
         panic!("Global heap doesn't keep track of memory usage")
     }
 }
-
-/// A instance of default allocator when you don't care memory accounting, limitation
-pub static GLOBAL: HeapAllocator = HeapAllocator{};
 

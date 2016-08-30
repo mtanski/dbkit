@@ -16,6 +16,8 @@ pub enum DBError {
     AttributeNullability(String),
     /// Mismatched expectation about attribute types
     AttributeType(String),
+    ///
+    RowOutOfBounds,
     /// Unknown memory allocation error
     Memory,
     /// Memory allocation limit reached (via policy)
@@ -47,6 +49,8 @@ impl fmt::Display for DBError {
                 write!(f, "Attribute Not Nullable {}", attr),
             DBError::AttributeType(ref attr) =>
                 write!(f, "Attribute Type Mismatch {}", attr),
+            DBError::RowOutOfBounds =>
+                write!(f, "Row out of bounds"),
             DBError::Memory =>
                 write!(f, "Memory allocation failure"),
             DBError::MemoryLimit =>
