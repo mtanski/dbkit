@@ -3,6 +3,7 @@ use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
 use super::types::{TypeInfo};
+use super::row::RowOffset;
 
 /// Abstraction on top of a Block for easy construction and modification of contained data.
 ///

@@ -9,10 +9,10 @@ use super::allocator::{Allocator, OwnedChunk};
 use super::types::TypeInfo;
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
+use super::row::{RowOffset, RowRange};
 
 pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
-pub type RowOffset = usize;
 
 // FIXME: empty array of a typed that's aligned the same way as allocator::MIN_ALIGN
 static EMPTY_ARRAY: [u8; 1] = [0];
@@ -97,9 +97,13 @@ pub struct AliasColumn<'parent> {
 }
 
 /// Create another read only alias of a column
-pub fn alias_column<'a>(src: &'a RefColumn<'a>, offset: RowOffset, rows: RowOffset)
+///
+/// If no range is specified, aliases the whole column source column.
+pub fn alias_column<'a>(src: &'a RefColumn<'a>, range: Option<RowRange>)
     -> Result<AliasColumn<'a>, DBError>
 {
+    let (offset, rows) = range.map(|r| (r.offset, r.rows)).unwrap_or((0, src.capacity()));
+
     let size_of = src.attribute().dtype.size_of();
     let start = offset * size_of;
     let len = rows + size_of;
@@ -276,14 +280,14 @@ pub struct RefView<'a> {
 }
 
 /// Take a view and create a vector of column aliases
-pub fn alias_columns<'a>(src: &'a View<'a>, offset: RowOffset, rows: RowOffset)
+pub fn alias_columns<'a>(src: &'a View<'a>, range: Option<RowRange>)
     -> Result<Vec<AliasColumn<'a>>, DBError>
 {
     let count = src.schema().count();
     let mut out: Vec<AliasColumn> = Vec::with_capacity(count);
 
     for pos in 0 .. count {
-        let col = alias_column(src.column(pos).unwrap(), offset, rows)?;
+        let col = alias_column(src.column(pos).unwrap(), range)?;
         out.push(col);
     }
 
@@ -305,23 +309,21 @@ impl<'a> View<'a> for RefView<'a> {
     }
 }
 
-impl<'a> RefView<'a> {
-
-}
-
 // Create window into another view
-pub fn window_alias<'a>(src: &'a View<'a>, offset: RowOffset, len: RowOffset)
+pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
     -> Result<RefView<'a>, DBError>
 {
-    if offset + len <= src.rows() {
+    let (offset, rows) = range.map(|r| (r.offset, r.rows)).unwrap_or((0, src.rows()));
+
+    if offset + rows <= src.rows() {
         Err(DBError::RowOutOfBounds)
     } else {
         let schema = src.schema();
 
         Ok(RefView {
             schema: schema.clone(),
-            rows: len,
-            columns: alias_columns(src, offset, len)?,
+            rows: rows,
+            columns: alias_columns(src, range)?,
         })
     }
 }

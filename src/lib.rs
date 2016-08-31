@@ -13,6 +13,7 @@ pub mod error;
 
 pub mod types;
 pub mod schema;
+pub mod row;
 
 pub mod allocator;
 pub mod block;
