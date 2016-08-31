@@ -172,6 +172,7 @@ mod tests {
     use allocator;
     use block::*;
     use error::DBError;
+    use row::*;
     use schema::*;
     use types::*;
 

@@ -26,7 +26,9 @@ pub trait Cursor<'a> {
 
 /// Operation that's part of the operation AST
 pub trait Operation<'a> {
+
     /// Convert operation AST a bound Cursor
+    // TODO: Tell bind if we want to shuffle GPU data or memory data
     fn bind(&'a self, &Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
 }
 
