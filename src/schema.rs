@@ -2,6 +2,7 @@
 
 // libstd
 use std::iter::Iterator;
+use std::collections::HashSet;
 
 // DBKit
 use super::error::DBError;
@@ -16,8 +17,8 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    fn new(name: &str, nullable: bool, dtype: Type) -> Attribute {
-        Attribute { name: String::from(name), nullable: nullable, dtype: dtype }
+    pub fn rename<S: Into<String>>(&self, name: S) -> Attribute {
+        Attribute { name: name.into(), nullable: self.nullable, dtype: self.dtype }
     }
 }
 
@@ -33,17 +34,20 @@ pub struct AttributeIter<'a> {
 }
 
 impl Schema {
-    pub fn from_slice(attrs: &[Attribute]) -> Schema {
-        // TODO: Check for duplicate names
-        let mut av = Vec::new();
-        av.extend_from_slice(attrs);
+    pub fn from_slice(attrs: &[Attribute]) -> Result<Schema, DBError> {
+        let mut names = HashSet::with_capacity(attrs.len());
 
-        Schema { attrs: av }
+        for a in attrs {
+            if names.replace(a.name.clone()).is_some() {
+                return Err(DBError::AttributeDuplicate(a.name.clone()))
+            }
+        }
+
+        Ok(Schema { attrs: Vec::from(attrs) })
     }
 
-    pub fn from_vec(attrs: Vec<Attribute>) -> Schema {
-        // TODO: Check for duplicate names
-        Schema { attrs: attrs }
+    pub fn from_vec(attrs: Vec<Attribute>) -> Result<Schema, DBError> {
+        Self::from_slice(attrs.as_slice())
     }
 
     /// Create a single Attribute schema from an external attribute
@@ -52,8 +56,8 @@ impl Schema {
     }
 
     /// Create a single Attribute schema
-    pub fn make_one_attr(name: &str, nullable: bool, dtype: Type) -> Schema {
-        Schema::from_attr(Attribute::new(name, nullable, dtype))
+    pub fn make_one_attr<S: Into<String>>(name: S, nullable: bool, dtype: Type) -> Schema {
+        Schema::from_attr(Attribute{name: name.into(), nullable: nullable, dtype: dtype})
     }
 
     pub fn count(&self) -> usize {
@@ -68,6 +72,11 @@ impl Schema {
         }
 
         return None
+    }
+
+    pub fn exists_ok(&self, name: &str) -> Result<usize, DBError> {
+        self.exists(name)
+            .ok_or(DBError::AttributeMissing(format!("(name: {})", name)))
     }
 
     pub fn get(&self, pos: usize) -> Result<&Attribute, DBError> {

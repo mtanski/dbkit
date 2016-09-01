@@ -22,3 +22,4 @@ pub mod table;
 pub mod operation;
 pub mod expression;
 
+pub mod projector;

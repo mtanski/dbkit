@@ -16,6 +16,8 @@ pub enum DBError {
     AttributeNullability(String),
     /// Mismatched expectation about attribute types
     AttributeType(String),
+    /// Duplicate attribute in result schema
+    AttributeDuplicate(String),
     ///
     RowOutOfBounds,
     /// Unknown memory allocation error
@@ -42,13 +44,15 @@ impl fmt::Display for DBError {
             DBError::IO(ref e) =>
                 write!(f, "IO Error {}", e),
             DBError::UnknownType(ref t) =>
-                write!(f, "Uknown/Enexpected Type {}", t),
+                write!(f, "Unknown/Unexpected Type {}", t),
             DBError::AttributeMissing(ref attr) =>
                 write!(f, "Unknown Attribute {}", attr),
             DBError::AttributeNullability(ref attr) =>
                 write!(f, "Attribute Not Nullable {}", attr),
             DBError::AttributeType(ref attr) =>
                 write!(f, "Attribute Type Mismatch {}", attr),
+            DBError::AttributeDuplicate(ref attr) =>
+                write!(f, "Duplicate Attribute Name {} in output schema", attr),
             DBError::RowOutOfBounds =>
                 write!(f, "Row out of bounds"),
             DBError::Memory =>

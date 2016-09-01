@@ -119,8 +119,10 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         }
 
         self.col = 0;
-        // Panics if this failed
-        self.row = self.table.add_row().unwrap();
+        match self.table.add_row() {
+            Ok(row) => self.row = row,
+            Err(e) => self.error = Some(e),
+        }
 
         self
     }
