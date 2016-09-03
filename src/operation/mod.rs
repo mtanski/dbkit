@@ -33,8 +33,5 @@ pub trait Operation<'a> {
 }
 
 pub mod scan_view;
-pub mod project;
-
 pub use self::scan_view::ScanView;
-pub use self::project::Project;
 
