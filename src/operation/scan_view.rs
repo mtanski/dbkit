@@ -21,10 +21,9 @@ impl<'a> ScanView<'a> {
 }
 
 impl<'a> Operation<'a> for ScanView<'a> {
-    fn bind(&'a self, alloc: &Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
+    fn bind<'b: 'a>(&'a self, alloc: &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
         let sub = window_alias(self.src, self.range)?;
-
-        let out : Box<Cursor> = Box::new(ScanViewCursor { src: sub, offset: 0 });
+        let out = Box::new(ScanViewCursor { src: sub, offset: 0 });
         Ok(out)
     }
 }
@@ -36,8 +35,8 @@ struct ScanViewCursor<'a> {
 }
 
 impl<'a> Cursor<'a> for ScanViewCursor<'a> {
-    fn schema(&self) -> Schema {
-        return self.src.schema().clone()
+    fn schema(&'a self) -> &'a Schema {
+        return self.src.schema()
     }
 
     fn next(&'a mut self, rows: RowOffset) -> Result<CursorChunk<'a>, DBError> {

@@ -18,7 +18,7 @@ pub enum CursorChunk<'a> {
 ///
 /// A cursor know it output and (optionally) input schema.
 pub trait Cursor<'a> {
-    fn schema(&self) -> Schema;
+    fn schema(&'a self) -> &'a Schema;
 
     // Can't quite be an iterator, we can want different batch sizes in subsequent calls
     fn next(&'a mut self, rows: RowOffset) -> Result<CursorChunk<'a>, DBError>;
@@ -29,9 +29,12 @@ pub trait Operation<'a> {
 
     /// Convert operation AST a bound Cursor
     // TODO: Tell bind if we want to shuffle GPU data or memory data
-    fn bind(&'a self, &Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
+    fn bind<'b: 'a>(&'a self, &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
 }
 
 pub mod scan_view;
+pub mod project;
+
 pub use self::scan_view::ScanView;
+pub use self::project::Project;
 

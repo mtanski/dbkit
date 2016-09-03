@@ -1,6 +1,8 @@
+#![feature(alloc)]
 #![feature(associated_consts)]
 #![feature(associated_type_defaults)]
-#![feature(alloc)]
+#![feature(box_patterns)]
+#![feature(box_syntax)]
 #![feature(heap_api)]
 #![feature(question_mark)]
 
