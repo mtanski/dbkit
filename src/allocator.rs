@@ -15,7 +15,7 @@ use super::error::DBError;
 // RUST IS FRUSTRATING:
 // mem::size_of is not const
 // const MIN_ALIGN: usize = mem::size_of::<usize>();
-const MIN_ALIGN: usize = 32;
+pub const MIN_ALIGN: usize = 32;
 
 /// Allocator trait, used through out the operations in dbkit.
 ///
@@ -132,7 +132,6 @@ impl Allocator for HeapAllocator {
     unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError>
     {
         let mut data = prev.as_mut_ptr();
-
         let nlen = heap::reallocate_inplace(data, prev.len(), size, prev.align);
 
         if nlen != size {
@@ -164,7 +163,7 @@ pub struct ArenaAppend(usize, *mut u8);
 /// Arena styled allocator. Stores data in non-relocatable/non-movable arenas.
 ///
 /// Policy is to increase allocation blocks 2X compare to previous block.
-struct ChainedArena<'a> {
+pub struct ChainedArena<'a> {
     parent: &'a Allocator,
     chunks: Vec<&'a mut [u8]>,
     min_size: usize,
@@ -185,6 +184,16 @@ unsafe fn make_arena<'a>(alloc: &'a Allocator, size: usize) -> Result<&'a mut [u
 }
 
 impl<'a> ChainedArena<'a> {
+
+    pub fn new(alloc: &'a Allocator, min_size: usize, max_size: usize) -> ChainedArena {
+        ChainedArena {
+            parent: alloc,
+            chunks: Vec::new(),
+            min_size: min_size,
+            max_size: max_size,
+            pos: 0,
+        }
+    }
 
     pub unsafe fn allocate(&mut self, size: usize) -> Result<*mut u8, DBError> {
         if size > self.max_size {

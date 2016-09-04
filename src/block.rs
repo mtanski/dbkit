@@ -5,7 +5,7 @@ use std::mem;
 use std::slice;
 
 // DBKit
-use super::allocator::{Allocator, OwnedChunk};
+use super::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
 use super::types::TypeInfo;
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
@@ -13,6 +13,10 @@ use super::row::{RowOffset, RowRange};
 
 pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
+
+const ARENA_MIN_SIZE : usize = MIN_ALIGN;
+// Limit large blobs / text to 16MB
+const ARENA_MAX_SIZE : usize = 16 * 1024 * 1024;
 
 /// Trait representing a reference to column data.
 /// Data can be owned by current object or references from another one.
@@ -88,6 +92,8 @@ pub struct Column<'alloc> {
     attr: Attribute,
     raw_nulls: OwnedChunk<'alloc>,
     raw: OwnedChunk<'alloc>,
+    /// Used to store varlen column values
+    arena: ChainedArena<'alloc>
 }
 
 /// Typed Data Column that references another column
@@ -200,6 +206,7 @@ impl<'alloc> Column<'alloc> {
             attr: attr,
             raw_nulls: OwnedChunk::empty(),
             raw: OwnedChunk::empty(),
+            arena: ChainedArena::new(a, ARENA_MIN_SIZE, ARENA_MAX_SIZE),
         }
     }
 
