@@ -1,8 +1,10 @@
 // vim : set ts=4 sw=4 et :
 
+use alloc::heap;
+use std::mem;
 use std::ptr;
 use std::slice;
-use alloc::heap;
+use std::cmp::min;
 
 use super::error::DBError;
 
@@ -25,8 +27,9 @@ pub trait Allocator : Send + Sync {
     /// Resize; will try to resize in place if possible
     unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError>;
 
-    // TODO: take in ChunkData & align
     fn putback(&self, data: &mut OwnedChunk);
+
+    fn putback_raw(&self, ptr: *mut u8, size: usize, align: usize);
 }
 
 pub type RefChunk<'a> = &'a mut [u8];
@@ -84,18 +87,9 @@ impl<'a> OwnedChunk<'a> {
 
 impl<'a> Drop for OwnedChunk<'a> {
     fn drop(&mut self) {
-        unsafe {
-            if self.data.is_none() {
-                return;
-            }
-
-            let parent = self.parent.take();
-            if let Some(p) = parent {
-                p.putback(self);
-            } else {
-                // Optimization for HeapAllocator
-                heap::deallocate(self.as_mut_ptr(), self.len(), self.align);
-            }
+        let parent = self.parent.take();
+        if let Some(p) = parent {
+            p.putback(self);
         }
     }
 }
@@ -128,7 +122,7 @@ impl Allocator for HeapAllocator {
 
             Ok(OwnedChunk {
                 // There's no tracking of memory here
-                parent: None,
+                parent: Some(self),
                 data: Some(slice),
                 align: align,
             })
@@ -152,8 +146,86 @@ impl Allocator for HeapAllocator {
         None
     }
 
-    fn putback(&self, _: &mut OwnedChunk) {
-        panic!("Global heap doesn't keep track of memory usage")
+    fn putback(&self, c: &mut OwnedChunk) {
+        if let Some(ref mut data) = c.data {
+            self.putback_raw(data.as_mut_ptr(), data.len(), c.align)
+        }
+    }
+
+    fn putback_raw(&self, ptr: *mut u8, size: usize, align: usize) {
+        // Just deallocate, no heap tracking
+        unsafe { heap::deallocate(ptr, size, align); }
+    }
+}
+
+/// Result of arena append
+pub struct ArenaAppend(usize, *mut u8);
+
+/// Arena styled allocator. Stores data in non-relocatable/non-movable arenas.
+///
+/// Policy is to increase allocation blocks 2X compare to previous block.
+struct ChainedArena<'a> {
+    parent: &'a Allocator,
+    chunks: Vec<&'a mut [u8]>,
+    min_size: usize,
+    max_size: usize,
+    pos: usize,
+}
+
+/// Helper for creating the next Arena using allocator. Unwraps from OwnedChunk since Chained Arena
+/// managed deallocation for the whole container.
+unsafe fn make_arena<'a>(alloc: &'a Allocator, size: usize) -> Result<&'a mut [u8], DBError> {
+    alloc.allocate_aligned(size, MIN_ALIGN)
+        .map(|ref mut c| {
+            let mut out: &'a mut [u8] = mem::uninitialized();
+            mem::swap(&mut out, c.data.as_mut().unwrap());
+            mem::forget(c);
+            out
+        })
+}
+
+impl<'a> ChainedArena<'a> {
+
+    pub unsafe fn allocate(&mut self, size: usize) -> Result<*mut u8, DBError> {
+        if size > self.max_size {
+            return Err(DBError::MemoryLimit);
+        }
+
+        let new_size = if let Some(ref mut arena) = self.chunks.last_mut() {
+            if arena.len() - self.pos >= size {
+                let ptr = arena.as_mut_ptr().offset(size as isize);
+                self.pos += size;
+                return Ok(ptr);
+            }
+
+            min(arena.len() * 2, self.max_size)
+        } else {
+            self.min_size
+        };
+
+        let new_arena = make_arena(self.parent, new_size)?;
+        let ptr = new_arena.as_mut_ptr();
+
+        self.chunks.push(new_arena);
+        Ok(ptr)
+    }
+
+    pub fn append(&mut self, data: &[u8]) -> Result<ArenaAppend, DBError> {
+        unsafe {
+            let ptr = self.allocate(data.len())?;
+            ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len());
+            Ok(ArenaAppend(self.chunks.len(), ptr))
+        }
+    }
+}
+
+impl<'a> Drop for ChainedArena<'a> {
+    fn drop(&mut self) {
+        let mut arenas = Vec::new();
+        mem::swap(&mut arenas, &mut self.chunks);
+        for ref mut a in arenas {
+            self.parent.putback_raw(a.as_mut_ptr(), a.len(), MIN_ALIGN);
+        }
     }
 }
 

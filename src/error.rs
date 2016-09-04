@@ -3,7 +3,7 @@
 use std::fmt;
 use std::io::{Error as IOError};
 
-// Execution errors
+/// Query execution errors
 pub enum DBError {
     Unknown,
     /// An underlying IO operation caused an error
