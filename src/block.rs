@@ -317,7 +317,7 @@ pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
 {
     let (offset, rows) = range.map(|r| (r.offset, r.rows)).unwrap_or((0, src.rows()));
 
-    if offset + rows <= src.rows() {
+    if offset + rows > src.rows() {
         Err(DBError::RowOutOfBounds)
     } else {
         let schema = src.schema();
