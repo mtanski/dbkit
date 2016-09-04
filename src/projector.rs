@@ -4,6 +4,7 @@ use super::error::DBError;
 use super::schema::{Attribute, Schema};
 use super::block::{self, RefView, View};
 
+/// Typed checked and evaluated projector
 pub struct BoundProjector {
     /// Output Schema
     pub schema: Schema,

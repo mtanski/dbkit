@@ -17,7 +17,7 @@ const MIN_ALIGN: usize = 32;
 
 /// Allocator trait, used through out the operations in dbkit.
 ///
-/// Allocators have to maintain their own synchornization
+/// Allocators have to maintain their own synchronization
 pub trait Allocator : Send + Sync {
     fn allocate(&self, size: usize) -> Result<OwnedChunk, DBError>;
     fn allocate_aligned(&self, size: usize, align: usize) -> Result<OwnedChunk, DBError>;
@@ -152,7 +152,7 @@ impl Allocator for HeapAllocator {
         None
     }
 
-    fn putback(&self, chunk: &mut OwnedChunk) {
+    fn putback(&self, _: &mut OwnedChunk) {
         panic!("Global heap doesn't keep track of memory usage")
     }
 }

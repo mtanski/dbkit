@@ -10,6 +10,7 @@ use ::projector::*;
 
 use super::{Operation, Cursor, CursorChunk};
 
+/// Relational project Operation
 pub struct Project<'a> {
     pub src: Box<Operation<'a> + 'a>,
     pub proj: SingleSourceProjector,
@@ -67,7 +68,7 @@ mod tests {
     use super::*;
     use ::allocator;
     use ::schema::{Attribute, Schema};
-    use ::operation::{Cursor, Operation, ScanView};
+    use ::operation::{Operation, ScanView};
     use ::projector::*;
     use ::table::{Table, TableAppender};
     use ::types::*;
