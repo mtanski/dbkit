@@ -61,3 +61,62 @@ impl<'a> Cursor<'a> for ProjectCursor<'a> {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::allocator;
+    use ::schema::{Attribute, Schema};
+    use ::operation::{Cursor, Operation, ScanView};
+    use ::projector::*;
+    use ::table::{Table, TableAppender};
+    use ::types::*;
+
+    #[test]
+    fn reorder_columns() {
+        let block = {
+            let attrs = vec![
+                Attribute{name: "one".to_string(), nullable: false, dtype: Type::UINT32},
+                Attribute{name: "two".to_string(), nullable: false, dtype: Type::UINT32},
+                Attribute{name: "three".to_string(), nullable: false, dtype: Type::UINT32},
+            ];
+
+            let schema = Schema::from_vec(attrs).unwrap();
+            let mut table = Table::new(&allocator::GLOBAL, &schema, None);
+
+            {
+                let status = TableAppender::new(&mut table)
+                    .add_row().set::<UInt32>(0)
+                    .add_row().set::<UInt32>(1)
+                    .add_row().set::<UInt32>(13)
+                    .done();
+
+                assert!(status.is_none(), "Error appending rows {}", status.unwrap());
+            }
+
+            table.take()
+        };
+
+        let proj = BuildSingleSourceProjector::new()
+            .add_as(project_by_position(2), "new_one")
+            .add(project_by_name("two"));
+
+        {
+            let scan_op = ScanView::new(block.as_ref().unwrap(), None);
+            let proj_op = Project::new(proj.done(), scan_op);
+
+            let cursor = proj_op.bind(&allocator::GLOBAL);
+
+            match cursor {
+                Err(e)  => panic!("Error creating cursor: {}", e),
+                Ok(c)   => {
+                    let cursor = &*c;
+                    let cursor_schema = cursor.schema();
+                    assert_eq!(cursor_schema.get(0).unwrap().name, "new_one", "Bad cursor schema");
+                    assert_eq!(cursor_schema.get(1).unwrap().name, "two", "Bad cursor schema");
+                }
+            }
+
+        }
+    }
+}
