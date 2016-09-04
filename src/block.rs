@@ -14,9 +14,6 @@ use super::row::{RowOffset, RowRange};
 pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
 
-// FIXME: empty array of a typed that's aligned the same way as allocator::MIN_ALIGN
-static EMPTY_ARRAY: [u8; 1] = [0];
-
 /// Trait representing a reference to column data.
 /// Data can be owned by current object or references from another one.
 pub trait RefColumn<'re> {
@@ -48,14 +45,16 @@ pub fn column_rows<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<&'c [T::Store]
     }
 
     unsafe {
-        let mut col_ptr = col.rows_ptr();
-
-        if col_ptr.is_null() {
-            col_ptr = &EMPTY_ARRAY[0] as *const u8
-        }
-
+        let col_ptr = col.rows_ptr();
         let typed_ptr: *const T::Store = mem::transmute(col_ptr);
-        Ok(slice::from_raw_parts(typed_ptr, rows))
+
+        let out = if typed_ptr.is_null() {
+            &[]
+        } else {
+            slice::from_raw_parts(typed_ptr, rows)
+        };
+
+        Ok(out)
     }
 }
 
@@ -68,13 +67,15 @@ pub fn column_nulls<'c>(col: &'c RefColumn) ->  Result<BoolBitmap<'c>, DBError> 
     }
 
     unsafe {
-        let mut nulls_ptr = col.nulls_ptr();
+        let nulls_ptr = col.nulls_ptr();
 
-        if nulls_ptr.is_null() {
-            nulls_ptr = &EMPTY_ARRAY[0] as *const u8
-        }
+        let out = if nulls_ptr.is_null() {
+            &[]
+        } else {
+            slice::from_raw_parts(nulls_ptr, rows)
+        };
 
-        return Ok(slice::from_raw_parts(nulls_ptr, rows));
+        Ok(out)
     }
 }
 
@@ -120,7 +121,7 @@ pub fn alias_column<'a>(src: &'a RefColumn<'a>, range: Option<RowRange>)
         let raw = src.nulls_raw_slice();
         &raw[offset .. offset + rows]
     } else {
-        &EMPTY_ARRAY
+        &[]
     };
 
     Ok(AliasColumn {
@@ -182,13 +183,13 @@ impl<'alloc> RefColumn<'alloc> for Column<'alloc> {
     fn rows_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw.data.as_ref()
             .map(|f| f as &'alloc [u8])
-            .unwrap_or(&EMPTY_ARRAY)
+            .unwrap_or(&[])
     }
 
     fn nulls_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw_nulls.data.as_ref()
             .map(|f| f as &'alloc [u8])
-            .unwrap_or(&EMPTY_ARRAY)
+            .unwrap_or(&[])
     }
 }
 
@@ -207,11 +208,12 @@ impl<'alloc> Column<'alloc> {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }
 
-        if let Some(ref mut slice) = self.raw_nulls.data {
-            return Ok(slice)
-        } else {
-            return Err(DBError::RowOutOfBounds)
-        }
+        let out: MutBoolBitmap = match self.raw_nulls.data {
+            Some(ref mut slice) => slice,
+            _ => &mut[],
+        };
+
+        Ok(out)
     }
 
     pub fn rows_mut<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
@@ -221,11 +223,13 @@ impl<'alloc> Column<'alloc> {
 
         unsafe {
             let ptr: *mut T::Store = mem::transmute(self.raw.as_mut_ptr());
-            if ptr.is_null() {
-                return Err(DBError::RowOutOfBounds)
+            let out = if ptr.is_null() {
+                &mut []
             } else {
-                return Ok(slice::from_raw_parts_mut(ptr, self.capacity()));
-            }
+                slice::from_raw_parts_mut(ptr, self.capacity())
+            };
+
+            Ok(out)
         }
     }
 
