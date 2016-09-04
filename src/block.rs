@@ -90,6 +90,7 @@ pub struct Column<'alloc> {
 }
 
 /// Typed Data Column that references another column
+#[derive(Clone)]
 pub struct AliasColumn<'parent> {
     attr: Attribute,
     raw_nulls: &'parent [u8],
@@ -273,6 +274,7 @@ pub trait View<'v> {
 }
 
 /// An implementation of a View that doesn't "own" the data but aliases it
+#[derive(Default)]
 pub struct RefView<'a> {
     schema: Schema,
     columns: Vec<AliasColumn<'a>>,
@@ -325,6 +327,12 @@ pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
             rows: rows,
             columns: alias_columns(src, range)?,
         })
+    }
+}
+
+impl<'a> RefView<'a> {
+    pub fn new(schema: Schema, columns: Vec<AliasColumn<'a>>, rows: RowOffset) -> RefView<'a> {
+        RefView { schema: schema, columns: columns, rows: rows }
     }
 }
 

@@ -1,15 +1,18 @@
+use itertools::Itertools;
 
 use super::error::DBError;
 use super::schema::{Attribute, Schema};
+use super::block::{self, RefView, View};
 
 pub struct BoundProjector {
     /// Output Schema
-    schema: Schema,
+    pub schema: Schema,
     bound_attrs: Vec<BoundAttribute>,
 }
 
 /// Projection for a single input operation
 pub struct SingleSourceProjector(Vec<Projector>);
+pub struct BuildSingleSourceProjector(Vec<Projector>);
 
 /// Projection for multi-input operation
 pub struct MultiSourceProjector(Vec<MultiProjector>);
@@ -45,12 +48,14 @@ pub fn project_all_attributes() -> SingleSourceProjector {
     SingleSourceProjector(vec![Projector(Source::ALL, As::ORIG)])
 }
 
+/// Project single argument from source by column position
 pub fn project_by_position(pos: usize) ->  SingleSourceProjector {
     SingleSourceProjector(vec![Projector(Source::POS(pos), As::ORIG)])
 }
 
-pub fn project_by_name(name: String) ->  SingleSourceProjector {
-    SingleSourceProjector(vec![Projector(Source::NAME(name), As::ORIG)])
+/// Project single argument from source by column name
+pub fn project_by_name<S: ToString>(name: S) ->  SingleSourceProjector {
+    SingleSourceProjector(vec![Projector(Source::NAME(name.to_string()), As::ORIG)])
 }
 
 fn mk_bound_attr(input: &Schema, pos: usize, out: &As) -> Result<BoundAttribute, DBError> {
@@ -64,7 +69,7 @@ fn mk_bound_attr(input: &Schema, pos: usize, out: &As) -> Result<BoundAttribute,
 }
 
 impl SingleSourceProjector {
-    fn bind(&self, input: &Schema) -> Result<BoundProjector, DBError> {
+    pub fn bind(&self, input: &Schema) -> Result<BoundProjector, DBError> {
         let mut bound = Vec::new();
 
         for proj in self.0.iter() {
@@ -85,8 +90,61 @@ impl SingleSourceProjector {
     }
 }
 
+impl BuildSingleSourceProjector {
+
+    pub fn new() -> BuildSingleSourceProjector {
+        BuildSingleSourceProjector(Vec::new())
+    }
+
+    pub fn add(mut self, mut proj: SingleSourceProjector) -> BuildSingleSourceProjector {
+        self.0.append(&mut proj.0);
+        self
+    }
+
+    pub fn add_as<S: ToString>(mut self, proj: SingleSourceProjector, name: S)
+        -> BuildSingleSourceProjector
+    {
+        proj.0.into_iter()
+            .map(|mut p| { p.1 = As::NEW(name.to_string()); p})
+            .foreach(|p| self.0.push(p));
+        self
+    }
+
+    pub fn add_prefixed<S: ToString>(mut self, proj: SingleSourceProjector, prefix: S)
+        -> BuildSingleSourceProjector
+    {
+        proj.0.into_iter()
+            .map(|mut p| { p.1 = As::PREFIX(prefix.to_string()); p})
+            .foreach(|p| self.0.push(p));
+        self
+    }
+
+    pub fn done(self) -> SingleSourceProjector {
+        SingleSourceProjector(self.0)
+    }
+}
+
 impl MultiSourceProjector {
-    fn bind(&self, src: &[&Schema]) -> Result<BoundProjector, DBError> {
+    pub fn bind(&self, src: &[&Schema]) -> Result<BoundProjector, DBError> {
         Err(DBError::Unknown)
     }
 }
+
+impl BoundProjector {
+    pub fn project_view<'a>(&self, src: &'a View<'a>) -> Result<RefView<'a>, DBError> {
+        let mut columns = Vec::new();
+        let schema = src.schema().clone();
+        let rows = src.rows();
+
+        for ref bound_attr in &self.bound_attrs {
+            let c = src.column(bound_attr.1).unwrap();
+            let nc = block::alias_column(c, None)?;
+
+            columns.push(nc);
+        }
+
+        let out = RefView::new(schema, columns, rows);
+        Ok(out)
+    }
+}
+

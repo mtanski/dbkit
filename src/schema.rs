@@ -23,7 +23,7 @@ impl Attribute {
 }
 
 /// Describes the attributes and organization of data
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Schema {
     attrs: Vec<Attribute>,
 }

@@ -5,6 +5,8 @@ use super::block::RefView;
 use super::row::RowOffset;
 use super::schema::Schema;
 
+const DEFAULT_CURSOR_FETCH : RowOffset = 1024;
+
 pub enum CursorChunk<'a> {
     /// Next chunk
     Next(RefView<'a>),
@@ -18,7 +20,7 @@ pub enum CursorChunk<'a> {
 ///
 /// A cursor know it output and (optionally) input schema.
 pub trait Cursor<'a> {
-    fn schema(&'a self) -> &'a Schema;
+    fn schema(&self) -> &Schema;
 
     // Can't quite be an iterator, we can want different batch sizes in subsequent calls
     fn next(&'a mut self, rows: RowOffset) -> Result<CursorChunk<'a>, DBError>;
@@ -33,5 +35,8 @@ pub trait Operation<'a> {
 }
 
 pub mod scan_view;
+pub mod project;
+
 pub use self::scan_view::ScanView;
+pub use self::project::Project;
 

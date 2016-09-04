@@ -180,8 +180,7 @@ mod tests {
 
     // Append one row to table via TableAppender, verify that underlying block has one row.
     #[test]
-    fn appender_rows()
-    {
+    fn appender_rows() {
         let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
         let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
@@ -213,8 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn appender_end_of_row()
-    {
+    fn appender_end_of_row() {
         let schema = Schema::make_one_attr("test_column", true, Type::UINT32);
         let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 

@@ -35,7 +35,7 @@ struct ScanViewCursor<'a> {
 }
 
 impl<'a> Cursor<'a> for ScanViewCursor<'a> {
-    fn schema(&'a self) -> &'a Schema {
+    fn schema(&self) -> &Schema {
         return self.src.schema()
     }
 
