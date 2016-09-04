@@ -28,7 +28,7 @@ impl<'a> Project<'a> {
 }
 
 impl<'a> Operation<'a> for Project<'a> {
-    fn bind<'b: 'a>(&'a self, alloc: &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
+    fn bind<'b: 'a>(&self, alloc: &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
         let boxed = self.src.bind(alloc)?;
 
         let proj = {
@@ -86,9 +86,10 @@ mod tests {
 
             {
                 let status = TableAppender::new(&mut table)
-                    .add_row().set::<UInt32>(0)
-                    .add_row().set::<UInt32>(1)
-                    .add_row().set::<UInt32>(13)
+                    .add_row()
+                        .set::<UInt32>(0)
+                        .set::<UInt32>(1)
+                        .set::<UInt32>(13)
                     .done();
 
                 assert!(status.is_none(), "Error appending rows {}", status.unwrap());
@@ -99,11 +100,12 @@ mod tests {
 
         let proj = BuildSingleSourceProjector::new()
             .add_as(project_by_position(2), "new_one")
-            .add(project_by_name("two"));
+            .add(project_by_name("two"))
+            .done();
 
         {
             let scan_op = ScanView::new(block.as_ref().unwrap(), None);
-            let proj_op = Project::new(proj.done(), scan_op);
+            let proj_op = Project::new(proj, scan_op);
 
             let cursor = proj_op.bind(&allocator::GLOBAL);
 

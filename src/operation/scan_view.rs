@@ -21,7 +21,7 @@ impl<'a> ScanView<'a> {
 }
 
 impl<'a> Operation<'a> for ScanView<'a> {
-    fn bind<'b: 'a>(&'a self, alloc: &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
+    fn bind<'b: 'a>(&self, alloc: &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError> {
         let sub = window_alias(self.src, self.range)?;
         let out = Box::new(ScanViewCursor { src: sub, offset: 0 });
         Ok(out)

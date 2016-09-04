@@ -31,7 +31,7 @@ pub trait Operation<'a> {
 
     /// Convert operation AST a bound Cursor
     // TODO: Tell bind if we want to shuffle GPU data or memory data
-    fn bind<'b: 'a>(&'a self, &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
+    fn bind<'b: 'a>(&self, &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
 }
 
 pub mod scan_view;
