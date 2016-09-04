@@ -107,18 +107,13 @@ mod tests {
             let scan_op = ScanView::new(block.as_ref().unwrap(), None);
             let proj_op = Project::new(proj, scan_op);
 
-            let cursor = proj_op.bind(&allocator::GLOBAL);
+            let cursor = proj_op.bind(&allocator::GLOBAL).unwrap();
+            let cursor_ref = &*cursor;
 
-            match cursor {
-                Err(e)  => panic!("Error creating cursor: {}", e),
-                Ok(c)   => {
-                    let cursor = &*c;
-                    let cursor_schema = cursor.schema();
-                    assert_eq!(cursor_schema.get(0).unwrap().name, "new_one", "Bad cursor schema");
-                    assert_eq!(cursor_schema.get(1).unwrap().name, "two", "Bad cursor schema");
-                }
-            }
-
+            // Columns correctly re-arranged
+            let cursor_schema = cursor_ref.schema();
+            assert_eq!(cursor_schema.get(0).unwrap().name, "new_one", "Bad cursor schema");
+            assert_eq!(cursor_schema.get(1).unwrap().name, "two", "Bad cursor schema");
         }
     }
 }
