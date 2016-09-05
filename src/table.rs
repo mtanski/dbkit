@@ -5,7 +5,7 @@ use super::schema::Schema;
 use super::types::{TypeInfo};
 use super::row::RowOffset;
 
-/// Abstraction on top of a Block for easy construction and modification of contained data.
+/// Abstraction on top of a `Block` for easy construction and modification of contained data.
 ///
 /// The container assumes that all operations on the block are safe and schema type conforming. In
 /// case of errors it simply panics.
@@ -81,10 +81,10 @@ impl<'alloc> Table<'alloc> {
     }
 }
 
-/// TableAppender is a convenient way to programmatically build a Table/Block.
+/// `TableAppender` is a convenient way to programmatically build a `Table`/`Block`.
 ///
-/// TableAppender assumes that the Table owns the Block. If the Table does not own the block (eg.
-/// it was been taken) then the use of TableAppender will result in a panic!
+/// `TableAppender` assumes that the Table owns the Block. If the Table does not own the block (eg.
+/// it was been taken) then the use of `TableAppender` will result in a panic!
 pub struct TableAppender<'alloc: 't, 't> {
     table: &'t mut Table<'alloc>,
     // Current row offset

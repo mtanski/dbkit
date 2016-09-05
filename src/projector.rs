@@ -73,7 +73,7 @@ impl SingleSourceProjector {
     pub fn bind(&self, input: &Schema) -> Result<BoundProjector, DBError> {
         let mut bound = Vec::new();
 
-        for proj in self.0.iter() {
+        for proj in &self.0 {
             match proj.0 {
                 Source::POS(pos) =>
                     bound.push(mk_bound_attr(input, pos, &proj.1)?),
@@ -86,7 +86,7 @@ impl SingleSourceProjector {
             }
         }
 
-        let attrs = bound.iter().map(|ref e| e.2.clone()).collect();
+        let attrs = bound.iter().map(|e| e.2.clone()).collect();
         Ok(BoundProjector { schema: Schema::from_vec(attrs)?, bound_attrs: bound })
     }
 }
@@ -137,7 +137,7 @@ impl BoundProjector {
         let schema = src.schema().clone();
         let rows = src.rows();
 
-        for ref bound_attr in &self.bound_attrs {
+        for bound_attr in &self.bound_attrs {
             let c = src.column(bound_attr.1).unwrap();
             let nc = block::alias_column(c, None)?;
 

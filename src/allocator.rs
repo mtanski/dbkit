@@ -43,7 +43,7 @@ pub struct OwnedChunk<'a> {
 
 impl<'a> OwnedChunk<'a> {
     pub fn empty() -> OwnedChunk<'static> {
-        return OwnedChunk {
+        OwnedChunk {
             parent: None,
             data: None,
             align: MIN_ALIGN,
@@ -56,20 +56,17 @@ impl<'a> OwnedChunk<'a> {
 
     pub fn len(&self) -> usize {
         self.data.as_ref()
-            .map(|ref slice| slice.len())
-            .unwrap_or(0)
+            .map_or(0, |slice| slice.len())
     }
 
     pub unsafe fn as_ptr(&self) -> *const u8 {
         self.data.as_ref()
-            .map(|ref slice| slice.as_ptr())
-            .unwrap_or(ptr::null())
+            .map_or(ptr::null(), |slice| slice.as_ptr())
     }
 
     pub unsafe fn as_mut_ptr(&mut self) -> *mut u8 {
         self.data.as_mut()
-            .map(|ref mut slice| slice.as_mut_ptr())
-            .unwrap_or(ptr::null_mut())
+            .map_or(ptr::null_mut(), |ref mut slice| slice.as_mut_ptr())
     }
 
     /// Attempt to resize the chunk. If possible it will attempt to resize in-place, if not possible
@@ -104,7 +101,7 @@ unsafe impl Sync for HeapAllocator{}
 /// A instance of default allocator when you don't care memory accounting, limitation
 pub static GLOBAL: HeapAllocator = HeapAllocator{};
 
-/// Simple heap allocator that delegates to alloc::heap
+/// Simple heap allocator that delegates to `alloc::heap`
 impl Allocator for HeapAllocator {
     fn allocate(&self, size: usize) -> Result<OwnedChunk, DBError> {
         self.allocate_aligned(size, MIN_ALIGN)
@@ -171,8 +168,8 @@ pub struct ChainedArena<'a> {
     pos: usize,
 }
 
-/// Helper for creating the next Arena using allocator. Unwraps from OwnedChunk since Chained Arena
-/// managed deallocation for the whole container.
+/// Helper for creating the next Arena using allocator. Unwraps from `OwnedChunk` since
+/// `ChainedArena` managed deallocation for the whole container.
 unsafe fn make_arena<'a>(alloc: &'a Allocator, size: usize) -> Result<&'a mut [u8], DBError> {
     alloc.allocate_aligned(size, MIN_ALIGN)
         .map(|ref mut c| {

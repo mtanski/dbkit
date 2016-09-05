@@ -39,7 +39,7 @@ pub trait RefColumn<'re> {
 
 /// Slice representing the data row data
 ///
-/// RUST FRUSTRATION: wish this could be part of RefColumn
+/// RUST FRUSTRATION: wish this could be part of `RefColumn`
 pub fn column_rows<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<&'c [T::Store], DBError> {
     let attr = col.attribute();
     let rows = col.capacity();
@@ -110,7 +110,7 @@ pub struct AliasColumn<'parent> {
 pub fn alias_column<'a>(src: &'a RefColumn<'a>, range: Option<RowRange>)
     -> Result<AliasColumn<'a>, DBError>
 {
-    let (offset, rows) = range.map(|r| (r.offset, r.rows)).unwrap_or((0, src.capacity()));
+    let (offset, rows) = range.map_or((0, src.capacity()), |r| (r.offset, r.rows));
 
     let size_of = src.attribute().dtype.size_of();
     let start = offset * size_of;
@@ -188,14 +188,12 @@ impl<'alloc> RefColumn<'alloc> for Column<'alloc> {
 
     fn rows_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw.data.as_ref()
-            .map(|f| f as &'alloc [u8])
-            .unwrap_or(&[])
+            .map_or(&[], |f| f as &'alloc [u8])
     }
 
     fn nulls_raw_slice(&'alloc self) -> &'alloc [u8] {
         self.raw_nulls.data.as_ref()
-            .map(|f| f as &'alloc [u8])
-            .unwrap_or(&[])
+            .map_or(&[], |f| f as &'alloc [u8])
     }
 }
 
@@ -326,7 +324,7 @@ impl<'a> View<'a> for RefView<'a> {
 pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
     -> Result<RefView<'a>, DBError>
 {
-    let (offset, rows) = range.map(|r| (r.offset, r.rows)).unwrap_or((0, src.rows()));
+    let (offset, rows) = range.map_or((0, src.rows()), |r| (r.offset, r.rows));
 
     if offset + rows > src.rows() {
         Err(DBError::RowOutOfBounds)
@@ -395,7 +393,7 @@ impl<'b> Block<'b> {
 
     /// Grow possible row space for each column
     pub fn set_capacity(&mut self, row_cap: RowOffset) -> Option<DBError> {
-        for ref mut col in self.columns.iter_mut() {
+        for ref mut col in &mut self.columns {
             let status = col.set_capacity(row_cap);
             if status.is_some() {
                 return status;

@@ -61,7 +61,7 @@ impl Schema {
     }
 
     pub fn count(&self) -> usize {
-        return self.attrs.len()
+        self.attrs.len()
     }
 
     pub fn exists(&self, name: &str) -> Option<usize> {
@@ -71,7 +71,7 @@ impl Schema {
             }
         }
 
-        return None
+        None
     }
 
     pub fn exists_ok(&self, name: &str) -> Result<usize, DBError> {
@@ -80,7 +80,7 @@ impl Schema {
     }
 
     pub fn get(&self, pos: usize) -> Result<&Attribute, DBError> {
-        return if pos >= self.attrs.len() {
+        if pos >= self.attrs.len() {
             Err(DBError::AttributeMissing(format!("(pos: {})", pos)))
         } else {
             Ok(&self.attrs[pos])
@@ -88,7 +88,7 @@ impl Schema {
     }
 
     pub fn find(&self, name: &str) -> Result<&Attribute, DBError> {
-        for attr in self.attrs.iter() {
+        for attr in &self.attrs {
             if &attr.name == name {
                 return Ok(attr)
             }
