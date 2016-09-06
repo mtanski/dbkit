@@ -3,6 +3,8 @@ use ::error::DBError;
 use ::row::RowOffset;
 use ::types;
 
+/// Trait for setting column row values from rust native types.
+/// Deals correctly with types that need to store data in the column's arena.
 pub trait ValueSetter {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError>;
 }
@@ -79,3 +81,6 @@ impl<'b> ValueSetter for &'b[u8] {
         Ok(())
     }
 }
+
+// TODO: Make a value alias... we can set a value but without copying the data in the arena.
+// Clearly unsafe, but useful for things like join with Tiny... where it's always alive.

@@ -1,10 +1,8 @@
 
+use std::convert::AsRef;
 use std::mem;
 use std::slice;
 use std::str;
-use std::string;
-
-use std::convert::AsRef;
 
 use super::error::DBError;
 
