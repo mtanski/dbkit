@@ -1,9 +1,10 @@
-use super::allocator::{Allocator};
+use super::allocator::{Allocator, ChainedArena};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
-use super::types::{TypeInfo};
+use super::types::*;
 use super::row::RowOffset;
+use super::util::copy_value::ValueSetter;
 
 /// Abstraction on top of a `Block` for easy construction and modification of contained data.
 ///
@@ -147,20 +148,18 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
     }
 
     // This is a pretty ugly workaround
-    pub fn set<T: TypeInfo>(mut self, value: T::Store) -> TableAppender<'alloc, 't>
-    {
+    pub fn set<T: ValueSetter>(mut self, value: T) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
 
-        let col = self.col;
-        let row = self.row;
+        let cidx = self.col;
+        let ridx = self.row;
 
         self.error = self.table
-            .column_mut(col)
-            .ok_or(DBError::make_column_unknown_pos(col))
-            .and_then(|c| c.rows_mut::<T>())
-            .and_then(|rows| { rows[row] = value; Ok(())})
+            .column_mut(cidx)
+            .ok_or(DBError::make_column_unknown_pos(cidx))
+            .and_then(|c| value.set_row(c, ridx, true))
             .err();
 
         self.col += 1;
@@ -187,7 +186,7 @@ mod tests {
         {
             let status = TableAppender::new(&mut table)
                 .add_row().set_null(true)
-                .add_row().set::<UInt32>(15)
+                .add_row().set(15 as u32)
                 .done();
 
             assert!(status.is_none(), "Error appending rows {}", status.unwrap());
@@ -217,7 +216,7 @@ mod tests {
         let mut table = Table::new(&allocator::GLOBAL, &schema, None);
 
         let status = TableAppender::new(&mut table)
-            .add_row().set_null(true).set::<UInt32>(15)
+            .add_row().set_null(true).set(15 as u32)
             .done();
 
         match status {

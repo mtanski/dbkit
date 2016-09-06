@@ -13,11 +13,12 @@ extern crate itertools;
 
 pub mod error;
 
+pub mod allocator;
 pub mod types;
 pub mod schema;
 pub mod row;
+pub mod util;
 
-pub mod allocator;
 pub mod block;
 pub mod table;
 

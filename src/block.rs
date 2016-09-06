@@ -6,7 +6,7 @@ use std::slice;
 
 // DBKit
 use super::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
-use super::types::TypeInfo;
+use super::types::Value;
 use super::schema::{Attribute, Schema};
 use super::error::DBError;
 use super::row::{RowOffset, RowRange};
@@ -40,7 +40,7 @@ pub trait RefColumn<'re> {
 /// Slice representing the data row data
 ///
 /// RUST FRUSTRATION: wish this could be part of `RefColumn`
-pub fn column_rows<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<&'c [T::Store], DBError> {
+pub fn column_rows<'c, T: Value>(col: &'c RefColumn) -> Result<&'c [T::Store], DBError> {
     let attr = col.attribute();
     let rows = col.capacity();
 
@@ -208,6 +208,10 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
+    pub fn arena(&mut self) -> &'alloc mut ChainedArena {
+        &mut self.arena
+    }
+
     pub fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
         if !self.attr.nullable {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
@@ -221,7 +225,7 @@ impl<'alloc> Column<'alloc> {
         Ok(out)
     }
 
-    pub fn rows_mut<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
+    pub fn rows_mut<T: Value>(&mut self) -> Result<&mut [T::Store], DBError> {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
         }

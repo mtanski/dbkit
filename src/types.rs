@@ -23,9 +23,11 @@ pub enum Type {
     BLOB,
 }
 
-pub trait TypeInfo {
-    // FIXME:
-    type Store: Copy;
+pub trait Value {
+    // RUST is frustrating
+    // This needs to be something otherwise we can't use it in other traits like ValueCopier
+    type Store;
+
     const ENUM: Type;
     const DEEP_COPY: bool = false;
 
@@ -47,48 +49,48 @@ pub struct Boolean;
 pub struct Text;
 pub struct Blob;
 
-impl TypeInfo for UInt32 {
+impl Value for UInt32 {
     type Store = u32;
     const ENUM: Type = Type::UINT32;
 }
 
-impl TypeInfo for UInt64 {
+impl Value for UInt64 {
     type Store = u64;
     const ENUM: Type = Type::UINT64;
 }
 
-impl TypeInfo for Int32 {
+impl Value for Int32 {
     type Store = i32;
     const ENUM: Type = Type::INT32;
 }
 
-impl TypeInfo for Int64 {
+impl Value for Int64 {
     type Store = i64;
     const ENUM: Type = Type::INT64;
 }
 
-impl TypeInfo for Float32 {
+impl Value for Float32 {
     type Store = f32;
     const ENUM: Type = Type::FLOAT32;
 }
 
-impl TypeInfo for Float64 {
+impl Value for Float64 {
     type Store = f64;
     const ENUM: Type = Type::FLOAT64;
 }
 
-impl TypeInfo for Boolean {
+impl Value for Boolean {
     type Store = bool;
     const ENUM: Type = Type::BOOLEAN;
 }
 
-impl TypeInfo for Text {
+impl Value for Text {
     type Store = RawData;
     const ENUM: Type = Type::TEXT;
     const DEEP_COPY: bool = true;
 }
 
-impl TypeInfo for Blob {
+impl Value for Blob {
     type Store = RawData;
     const ENUM: Type = Type::BLOB;
     const DEEP_COPY: bool = true;
@@ -125,15 +127,15 @@ impl Type {
     // So we have to keep repeating ourselves
     pub fn size_of(self) -> usize {
         match self {
-            Type::UINT32 => UINT32.size_of(),
-            Type::UINT64 => UINT64.size_of(),
-            Type::INT32 => INT32.size_of(),
-            Type::INT64 => INT64.size_of(),
-            Type::FLOAT32 => FLOAT32.size_of(),
-            Type::FLOAT64 => FLOAT64.size_of(),
-            Type::BOOLEAN => BOOLEAN.size_of(),
-            Type::TEXT => TEXT.size_of(),
-            Type::BLOB => BLOB.size_of(),
+            Type::UINT32    => UINT32.size_of(),
+            Type::UINT64    => UINT64.size_of(),
+            Type::INT32     => INT32.size_of(),
+            Type::INT64     => INT64.size_of(),
+            Type::FLOAT32   => FLOAT32.size_of(),
+            Type::FLOAT64   => FLOAT64.size_of(),
+            Type::BOOLEAN   => BOOLEAN.size_of(),
+            Type::TEXT      => TEXT.size_of(),
+            Type::BLOB      => BLOB.size_of(),
         }
     }
 }

@@ -88,9 +88,9 @@ mod tests {
             {
                 let status = TableAppender::new(&mut table)
                     .add_row()
-                        .set::<UInt32>(0)
-                        .set::<UInt32>(1)
-                        .set::<UInt32>(13)
+                        .set(0 as u32)
+                        .set(1 as u32)
+                        .set(13 as u32)
                     .done();
 
                 assert!(status.is_none(), "Error appending rows {}", status.unwrap());
