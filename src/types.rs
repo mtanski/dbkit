@@ -25,9 +25,8 @@ pub enum Type {
     BLOB,
 }
 
-pub trait Value {
-    // RUST is frustrating
-    // This needs to be something otherwise we can't use it in other traits like ValueCopier
+/// Trait providing higher level metadata about types
+pub trait ValueInfo {
     type Store;
 
     const ENUM: Type;
@@ -51,48 +50,48 @@ pub struct Boolean;
 pub struct Text;
 pub struct Blob;
 
-impl Value for UInt32 {
+impl ValueInfo for UInt32 {
     type Store = u32;
     const ENUM: Type = Type::UINT32;
 }
 
-impl Value for UInt64 {
+impl ValueInfo for UInt64 {
     type Store = u64;
     const ENUM: Type = Type::UINT64;
 }
 
-impl Value for Int32 {
+impl ValueInfo for Int32 {
     type Store = i32;
     const ENUM: Type = Type::INT32;
 }
 
-impl Value for Int64 {
+impl ValueInfo for Int64 {
     type Store = i64;
     const ENUM: Type = Type::INT64;
 }
 
-impl Value for Float32 {
+impl ValueInfo for Float32 {
     type Store = f32;
     const ENUM: Type = Type::FLOAT32;
 }
 
-impl Value for Float64 {
+impl ValueInfo for Float64 {
     type Store = f64;
     const ENUM: Type = Type::FLOAT64;
 }
 
-impl Value for Boolean {
+impl ValueInfo for Boolean {
     type Store = bool;
     const ENUM: Type = Type::BOOLEAN;
 }
 
-impl Value for Text {
+impl ValueInfo for Text {
     type Store = RawData;
     const ENUM: Type = Type::TEXT;
     const DEEP_COPY: bool = true;
 }
 
-impl Value for Blob {
+impl ValueInfo for Blob {
     type Store = RawData;
     const ENUM: Type = Type::BLOB;
     const DEEP_COPY: bool = true;
