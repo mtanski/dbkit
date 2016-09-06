@@ -208,7 +208,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    pub fn arena(&mut self) -> &'alloc mut ChainedArena {
+    pub fn arena(&mut self) -> &mut ChainedArena<'alloc> {
         &mut self.arena
     }
 

@@ -1,8 +1,7 @@
-use super::allocator::{Allocator, ChainedArena};
+use super::allocator::{Allocator};
 use super::block::*;
 use super::error::DBError;
 use super::schema::Schema;
-use super::types::*;
 use super::row::RowOffset;
 use super::util::copy_value::ValueSetter;
 
@@ -159,7 +158,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         self.error = self.table
             .column_mut(cidx)
             .ok_or(DBError::make_column_unknown_pos(cidx))
-            .and_then(|c| value.set_row(c, ridx, true))
+            .and_then(|c| value.set_row(c, ridx))
             .err();
 
         self.col += 1;
@@ -224,5 +223,46 @@ mod tests {
             Some(e) => assert!(false, "Unexpected error {}", e),
             None => assert!(false, "Expected error"),
         }
+    }
+
+    #[test]
+    fn varlen_columns() {
+        let bytes: [u8; 5] = [0, 1, 2, 3, 4];
+
+        let table = {
+            let attrs = vec![
+                Attribute{name: "one".to_string(), nullable: false, dtype: Type::BLOB},
+                Attribute{name: "two".to_string(), nullable: false, dtype: Type::TEXT},
+            ];
+
+            let schema = Schema::from_vec(attrs).unwrap();
+            let mut table = Table::new(&allocator::GLOBAL, &schema, None);
+
+            {
+
+                let status = TableAppender::new(&mut table)
+                    .add_row()
+                        .set(bytes.as_ref())
+                        .set("one")
+                    .add_row()
+                        .set(bytes.as_ref())
+                        .set("two".to_string())
+                    .done();
+
+                assert!(status.is_none(), "Error appending rows {}", status.unwrap());
+            }
+
+            table
+        };
+
+        let col0 = table.block_ref().column(0).unwrap();
+        let cd0 = column_rows::<Blob>(col0).unwrap();
+        assert_eq!(cd0[0].as_ref(), bytes);
+        assert_eq!(cd0[1].as_ref(), bytes);
+
+        let col1 = table.block_ref().column(1).unwrap();
+        let cd1 = column_rows::<Text>(col1).unwrap();
+        assert_eq!(cd1[0].as_ref() as &str, "one");
+        assert_eq!(cd1[1].to_string(), String::from("two"));
     }
 }

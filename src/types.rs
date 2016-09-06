@@ -1,6 +1,10 @@
 
 use std::mem;
+use std::slice;
 use std::str;
+use std::string;
+
+use std::convert::AsRef;
 
 use super::error::DBError;
 
@@ -158,3 +162,24 @@ impl str::FromStr for Type {
     }
 }
 
+impl AsRef<[u8]> for RawData {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.data, self.size) }
+    }
+}
+
+impl AsRef<str> for RawData {
+    fn as_ref(&self) -> &str {
+        unsafe {
+            let slice = slice::from_raw_parts(self.data, self.size);
+            str::from_utf8_unchecked(slice)
+        }
+    }
+}
+
+impl ToString for RawData {
+    fn to_string(&self) -> String {
+        let str: &str = self.as_ref();
+        String::from(str)
+    }
+}

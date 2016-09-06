@@ -155,7 +155,8 @@ impl Allocator for HeapAllocator {
 }
 
 /// Result of arena append
-pub struct ArenaAppend(usize, *mut u8);
+/// Chunk offset & pointer
+pub struct ArenaAppend(pub usize, pub *mut u8);
 
 /// Arena styled allocator. Stores data in non-relocatable/non-movable arenas.
 ///
@@ -182,7 +183,7 @@ unsafe fn make_arena<'a>(alloc: &'a Allocator, size: usize) -> Result<&'a mut [u
 
 impl<'a> ChainedArena<'a> {
 
-    pub fn new(alloc: &'a Allocator, min_size: usize, max_size: usize) -> ChainedArena {
+    pub fn new(alloc: &'a Allocator, min_size: usize, max_size: usize) -> ChainedArena<'a> {
         ChainedArena {
             parent: alloc,
             chunks: Vec::new(),
