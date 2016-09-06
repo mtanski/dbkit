@@ -79,6 +79,33 @@ impl<'alloc> Table<'alloc> {
             .unwrap()
             .column_mut(pos)
     }
+
+    /// Set nul value for (col, row) in the currently allocated table space.
+    pub fn set_null(&mut self, col: usize, row: RowOffset, value: bool) -> Result<(), DBError> {
+        if row >= self.rows() {
+            return Err(DBError::RowOutOfBounds)
+        }
+
+        self.column_mut(col)
+            .ok_or(DBError::make_column_unknown_pos(col))
+            .and_then(|c| c.mut_nulls())
+            .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
+    }
+
+    /// Set value for (col, row) in the currently allocated table space.
+    pub fn set<T: ValueSetter>(&mut self, col: usize, row: RowOffset, value: T)
+        -> Result<(), DBError>
+    {
+        if row >= self.rows() {
+            return Err(DBError::RowOutOfBounds)
+        }
+
+        // TODO: Clear null value
+
+        self.column_mut(col)
+            .ok_or(DBError::make_column_unknown_pos(col))
+            .and_then(|c| value.set_row(c, row))
+    }
 }
 
 /// `TableAppender` is a convenient way to programmatically build a `Table`/`Block`.
@@ -127,41 +154,27 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         self
     }
 
+    /// Set column value to NUL and move onto the column to the right
     pub fn set_null(mut self, value: bool) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
 
-        let col = self.col;
-        let row = self.row;
-
-        self.error = self.table
-            .column_mut(col)
-            .ok_or(DBError::make_column_unknown_pos(col))
-            .and_then(|c| c.mut_nulls())
-            .and_then(|nulls| { ;nulls[row] = value as u8; Ok(()) })
-            .err();
-
+        self.error = self.table.set_null(self.col, self.row, value).err();
         self.col += 1;
+
         self
     }
 
-    // This is a pretty ugly workaround
+    /// Set column value and move onto the column to the right
     pub fn set<T: ValueSetter>(mut self, value: T) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self
         }
 
-        let cidx = self.col;
-        let ridx = self.row;
-
-        self.error = self.table
-            .column_mut(cidx)
-            .ok_or(DBError::make_column_unknown_pos(cidx))
-            .and_then(|c| value.set_row(c, ridx))
-            .err();
-
+        self.error = self.table.set(self.col, self.row, value).err();
         self.col += 1;
+
         self
     }
 }
