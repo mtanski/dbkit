@@ -41,6 +41,14 @@ impl ValueSetter for i64 {
     }
 }
 
+impl ValueSetter for bool {
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        let rows = col.rows_mut::<types::Boolean>()?;
+        rows[row] = *self;
+        Ok(())
+    }
+}
+
 impl<'b> ValueSetter for &'b str {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
         let data = self.as_bytes();
