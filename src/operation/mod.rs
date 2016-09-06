@@ -7,6 +7,7 @@ use super::schema::Schema;
 
 const DEFAULT_CURSOR_FETCH : RowOffset = 1024;
 
+/// Next series of `Cursor` data
 pub enum CursorChunk<'a> {
     /// Next chunk
     Next(RefView<'a>),
@@ -26,7 +27,10 @@ pub trait Cursor<'a> {
     fn next(&'a mut self, rows: RowOffset) -> Result<CursorChunk<'a>, DBError>;
 }
 
-/// Operation that's part of the operation AST
+/// `Operation` is the basic building model of a query.
+///
+/// Operations are built together into a tree of Operation that represent the flow of rows from
+/// one relational Operation into another.
 pub trait Operation<'a> {
 
     /// Convert operation AST a bound Cursor

@@ -28,6 +28,7 @@ impl<'a> Operation<'a> for ScanView<'a> {
     }
 }
 
+/// Implementation of the `ScanView` operation
 struct ScanViewCursor<'a> {
     /// This view is already sub
     src: RefView<'a>,

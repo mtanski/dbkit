@@ -49,6 +49,7 @@ impl<'alloc> Table<'alloc> {
         }
     }
 
+    /// Add a single row.
     pub fn add_row(&mut self) -> Result<RowOffset, DBError> {
         self.block
             .as_mut()
@@ -68,10 +69,15 @@ impl<'alloc> Table<'alloc> {
             .unwrap()
     }
 
+    /// Take ownership of the contained `Block`.
+    ///
+    /// This is done when the `Table` is complete and is going to be used elsewhere.
     pub fn take(&mut self) -> Option<Block<'alloc>> {
         self.block.take()
     }
 
+    /// Get a mutable reference to the `Table`/`Block` column.
+    ///
     /// panics on out of bounds column
     pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'alloc>> {
         self.block
@@ -110,6 +116,9 @@ impl<'alloc> Table<'alloc> {
 
 /// `TableAppender` is a convenient way to programmatically build a `Table`/`Block`.
 ///
+/// `TableAppender` works on a row -> column basis. You first add a new row, then you fill up each
+/// of the columns in the row until you're ready for the next row (or done).
+///
 /// `TableAppender` assumes that the Table owns the Block. If the Table does not own the block (eg.
 /// it was been taken) then the use of `TableAppender` will result in a panic!
 pub struct TableAppender<'alloc: 't, 't> {
@@ -131,15 +140,17 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
         }
     }
 
-    /// Result of append operation
+    /// Result (error) of append operation
     pub fn status(&self) -> Option<&DBError> {
         self.error.as_ref()
     }
 
+    /// Takes the result (error) of the append operation
     pub fn done(&mut self) -> Option<DBError> {
         self.error.take()
     }
 
+    /// Append new row
     pub fn add_row(mut self) -> TableAppender<'alloc, 't> {
         if self.error.is_some() {
             return self;

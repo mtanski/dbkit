@@ -6,12 +6,14 @@ use std::str;
 
 use super::error::DBError;
 
+/// "Native" type storing `Column` data for VARLEN columns
 #[derive(Clone, Copy)]
 pub struct RawData {
     pub data: *mut u8,
     pub size: usize,
 }
 
+/// "Symbolic" Type of a `Column` `Attribute`
 #[derive(Clone, Copy, PartialEq)]
 pub enum Type {
     UINT32,
@@ -27,9 +29,12 @@ pub enum Type {
 
 /// Trait providing higher level metadata about types
 pub trait ValueInfo {
+    /// The native Rust type backing the column vector
     type Store;
 
+    /// Symbolic type
     const ENUM: Type;
+    /// Do this value require deep copying of data (stored in the `Column' arena)
     const DEEP_COPY: bool = false;
 
     // RUST is frustrating

@@ -10,12 +10,13 @@ use ::projector::*;
 
 use super::{Operation, Cursor, CursorChunk};
 
-/// Relational project Operation
+/// Relational Project Operation
 pub struct Project<'a> {
     pub src: Box<Operation<'a> + 'a>,
     pub proj: SingleSourceProjector,
 }
 
+/// Implementation of the `Project` operation
 struct ProjectCursor<'a> {
     input: Box<Cursor<'a> + 'a>,
     proj: BoundProjector,

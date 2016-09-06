@@ -14,8 +14,11 @@ use super::row::{RowOffset, RowRange};
 pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
 
+/// Starting size for the VARLEN arena
 const ARENA_MIN_SIZE : usize = MIN_ALIGN;
-// Limit large blobs / text to 16MB
+
+/// Limit on arena chunk size. This is also on the largest VARLEN value in Columns.
+/// Currently the limit for large blobs / text is up to 16MB.
 const ARENA_MAX_SIZE : usize = 16 * 1024 * 1024;
 
 /// Trait representing a reference to column data.
@@ -62,6 +65,7 @@ pub fn column_rows<'c, T: ValueInfo>(col: &'c RefColumn) -> Result<&'c [T::Store
     }
 }
 
+/// Slice representing the column null vector (row data)
 pub fn column_nulls<'c>(col: &'c RefColumn) ->  Result<BoolBitmap<'c>, DBError> {
     let attr = col.attribute();
     let rows = col.capacity();
@@ -324,7 +328,7 @@ impl<'a> View<'a> for RefView<'a> {
     }
 }
 
-// Create window into another view
+/// Create window into another view
 pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
     -> Result<RefView<'a>, DBError>
 {
@@ -391,6 +395,7 @@ impl<'b> Block<'b> {
         b
     }
 
+    /// Number of rows the Block can currently grow to without re-allocating column data.
     pub fn capacity(&self) -> RowOffset {
         self.capacity
     }
