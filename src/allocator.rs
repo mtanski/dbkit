@@ -172,7 +172,7 @@ pub struct ChainedArena<'a> {
 /// `ChainedArena` managed deallocation for the whole container.
 unsafe fn make_arena<'a>(alloc: &'a Allocator, size: usize) -> Result<&'a mut [u8], DBError> {
     alloc.allocate_aligned(size, MIN_ALIGN)
-        .map(|ref mut c| {
+        .map(|mut c| {
             let mut out: &'a mut [u8] = mem::uninitialized();
             mem::swap(&mut out, c.data.as_mut().unwrap());
             mem::forget(c);
