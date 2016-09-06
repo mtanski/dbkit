@@ -1,6 +1,6 @@
 [package]
 name = "dbkit-engine"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Milosz Tanski <milosz@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "A columnar query execution engine"
