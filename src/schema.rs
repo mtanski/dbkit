@@ -16,12 +16,6 @@ pub struct Attribute {
     pub dtype: Type,
 }
 
-impl Attribute {
-    pub fn rename<S: Into<String>>(&self, name: S) -> Attribute {
-        Attribute { name: name.into(), nullable: self.nullable, dtype: self.dtype }
-    }
-}
-
 /// Describes the attributes and organization of data
 #[derive(Clone, Default)]
 pub struct Schema {
@@ -31,6 +25,12 @@ pub struct Schema {
 pub struct AttributeIter<'a> {
     schema: &'a Schema,
     cur: usize
+}
+
+impl Attribute {
+    pub fn rename<S: Into<String>>(&self, name: S) -> Attribute {
+        Attribute { name: name.into(), nullable: self.nullable, dtype: self.dtype }
+    }
 }
 
 impl Schema {
@@ -101,6 +101,14 @@ impl Schema {
         AttributeIter { schema: self, cur: 0 }
     }
 }
+
+/*
+
+impl Display for Schema {
+
+}
+
+*/
 
 impl<'a> Iterator for AttributeIter<'a> {
     type Item = &'a Attribute;
