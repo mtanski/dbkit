@@ -1,5 +1,5 @@
 
-use std::convert::AsRef;
+use std::convert::{AsRef, From};
 use std::mem;
 use std::slice;
 use std::str;
@@ -9,6 +9,7 @@ use super::error::DBError;
 /// "Native" type storing `Column` data for VARLEN columns
 #[derive(Clone, Copy)]
 pub struct RawData {
+    // This cannot me a &[u8] slice because slices cannot be have a nullptr
     pub data: *mut u8,
     pub size: usize,
 }
@@ -183,5 +184,76 @@ impl ToString for RawData {
     fn to_string(&self) -> String {
         let str: &str = self.as_ref();
         String::from(str)
+    }
+}
+
+/// Value representing the null database column value
+pub struct NullValue { }
+
+/// Container storing any kind of value
+pub enum Value<'a> {
+    NULL,
+    UINT32(u32),
+    UINT64(u64),
+    INT32(i32),
+    INT64(i64),
+    FLOAT32(f32),
+    FLOAT64(f64),
+    BOOLEAN(bool),
+    TEXT(&'a str),
+    BLOB(&'a [u8]),
+}
+
+impl<'a> From<NullValue> for Value<'a> {
+    fn from(_: NullValue) -> Self {
+        Value::NULL
+    }
+}
+
+impl<'a> From<u32> for Value<'a> {
+    fn from(v: u32) -> Self {
+        Value::UINT32(v)
+    }
+}
+
+impl<'a> From<u64> for Value<'a> {
+    fn from(v: u64) -> Self {
+        Value::UINT64(v)
+    }
+}
+
+impl<'a> From<i32> for Value<'a> {
+    fn from(v: i32) -> Self {
+        Value::INT32(v)
+    }
+}
+
+impl<'a> From<i64> for Value<'a> {
+    fn from(v: i64) -> Self {
+        Value::INT64(v)
+    }
+}
+
+impl<'a> From<f32> for Value<'a> {
+    fn from(v: f32) -> Self {
+        Value::FLOAT32(v)
+    }
+}
+
+impl<'a> From<f64> for Value<'a> {
+    fn from(v: f64) -> Self {
+        Value::FLOAT64(v)
+    }
+}
+
+impl<'a> From<&'a str> for Value<'a> {
+    fn from(v: &'a str) -> Self {
+        Value::TEXT(v)
+    }
+}
+
+impl<'a> From<&'a [u8]> for Value<'a> {
+    fn from(v: &'a [u8]) -> Self {
+        Value::BLOB(v)
     }
 }

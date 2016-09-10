@@ -94,7 +94,7 @@ impl<'alloc> Table<'alloc> {
 
         self.column_mut(col)
             .ok_or(DBError::make_column_unknown_pos(col))
-            .and_then(|c| c.mut_nulls())
+            .and_then(|c| c.nulls_mut())
             .and_then(|nulls| { nulls[row] = value as u8; Ok(()) })
     }
 

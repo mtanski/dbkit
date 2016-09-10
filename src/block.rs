@@ -216,7 +216,7 @@ impl<'alloc> Column<'alloc> {
         &mut self.arena
     }
 
-    pub fn mut_nulls(&mut self) -> Result<MutBoolBitmap, DBError> {
+    pub fn nulls_mut(&mut self) -> Result<MutBoolBitmap, DBError> {
         if !self.attr.nullable {
             return Err(DBError::AttributeNullability(self.attr.name.clone()))
         }

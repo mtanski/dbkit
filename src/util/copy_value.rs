@@ -9,6 +9,14 @@ pub trait ValueSetter {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError>;
 }
 
+impl ValueSetter for types::NullValue {
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        let rows = col.nulls_mut()?;
+        rows[row] = true as u8;
+        Ok(())
+    }
+}
+
 impl ValueSetter for u32 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
         let rows = col.rows_mut::<types::UInt32>()?;
