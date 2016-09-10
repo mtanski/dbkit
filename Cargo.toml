@@ -4,8 +4,10 @@ version = "0.0.8"
 authors = ["Milosz Tanski <milosz@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "A columnar query execution engine"
-
 repository = "https://github.com/mtanski/dbkit"
+documentation = "https://docs.rs/dbkit-engine"
+readme = "README.md"
+
 
 [dependencies]
 toml = "^0.2"

@@ -6,29 +6,39 @@
 #![feature(heap_api)]
 #![feature(question_mark)]
 
-/// Columnar query processing engine written in Rust.
-///
-/// Part of the dbkit suite of Rust libraries. dbkit isn't a standalone database, rather its a
-/// group of libaries that provided building blocks to build a database or database like data
-/// processing applications.
+//! DBKit Engine -- Columnar query processing engine
+//!
+//! Part of the DBKit set of Rust libraries. DBKit isn't a standalone database, rather its a
+//! group of libraries that provided building blocks to build a database or database like data
+//! processing applications.
 
 extern crate alloc;
 
 #[macro_use]
 extern crate itertools;
 
+/// Database error type and error utilities
 pub mod error;
 
+/// Allocator facilities for column data and in flight operations & expressions.
 pub mod allocator;
+/// Database Type system
 pub mod types;
+/// Database schema
 pub mod schema;
 pub mod row;
 pub mod util;
 
+/// Containers for columnar data.
 pub mod block;
+/// Tools for creating, writing & accessing columnar by row or element.
 pub mod table;
 
+/// Database operations
 pub mod operation;
+/// Database expressions
 pub mod expression;
 
+/// Data structures for representing schema projections.
 pub mod projector;
+
