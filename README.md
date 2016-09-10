@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/rust-dbkit/Lobby](https://badges.gitter.im/rust-dbkit/Lobby.svg)](https://gitter.im/rust-dbkit/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/mtanski/dbkit.svg?branch=master)](https://travis-ci.org/mtanski/dbkit)
-[![Crates.io](https://img.shields.io/crates/v/dbkit-engine.svg?maxAge=2592000)](https://crates.io/crates/dbkit-engine)
+[![Crates.io](https://img.shields.io/crates/v/dbkit-engine.svg)](https://crates.io/crates/dbkit-engine)
 
 Columnar query processing engine written in Rust.
 dbkit is not a standalone database, rather it a library that be leveraged in other poejcts.
