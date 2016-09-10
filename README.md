@@ -5,7 +5,9 @@
 [![Crates.io](https://img.shields.io/crates/v/dbkit-engine.svg)](https://crates.io/crates/dbkit-engine)
 
 Columnar query processing engine written in Rust.
-dbkit is not a standalone database, rather it a library that be leveraged in other poejcts.
+Part of the dbkit suite of Rust libraries. dbkit isn't a standalone database,
+rather its a group of libaries that provided building blocks to build a
+database or database like data processing applications.
 
 dbkit can be used to build:
 * It can be used to implement parts of an OLAP database
@@ -22,8 +24,8 @@ While dbkit draws a lot of inspiration from Supersonic it is not meant to be a s
 
 ## Goals
 
-- [ ] Building blocks representing schema & data *In progress*
-- [ ] Implementation of relational operations and expressions
+- [X] Building blocks representing schema & data
+- [ ] Implementation of relational operations and expressions *In progress*
 - [ ] Query AST tree representation
 - [ ] SIMD implementation of operations
 - [ ] GPU (OpenCL) implementation of operations 

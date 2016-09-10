@@ -1,3 +1,10 @@
+/// Columnar query processing engine written in Rust.
+///
+/// Part of the dbkit suite of Rust libraries. dbkit isn't a standalone database, rather its a
+/// group of libaries that provided building blocks to build a database or database like data
+/// processing applications.
+
+
 #![feature(alloc)]
 #![feature(associated_consts)]
 #![feature(associated_type_defaults)]
