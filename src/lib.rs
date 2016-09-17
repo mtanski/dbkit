@@ -15,6 +15,9 @@
 extern crate alloc;
 
 #[macro_use]
+extern crate log;
+
+#[macro_use]
 extern crate itertools;
 
 /// Database error type and error utilities
@@ -42,3 +45,5 @@ pub mod expression;
 /// Data structures for representing schema projections.
 pub mod projector;
 
+#[cfg(feature = "jit")]
+pub mod jit;

@@ -8,12 +8,22 @@ repository = "https://github.com/mtanski/dbkit"
 documentation = "https://docs.rs/dbkit-engine"
 readme = "README.md"
 
+[features]
+default = [ "jit" ]
+# Need LLVM in order to build JIT processing engine
+jit = [ "llvm-alt", "llvm-sys", "cbox" ]
 
 [dependencies]
 toml = "^0.2"
 log = "^0.3"
 itertools = "^0.4"
 
+llvm-sys = { version = "0.4.*", optional = true }
+llvm-alt = { version = "0.*", optional = true }
+cbox = { version = "^0.3", optional = true }
+
 [lib]
 name = "dbkit_engine"
 path = "src/lib.rs"
+
+

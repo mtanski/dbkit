@@ -5,7 +5,9 @@ use ::error::DBError;
 use ::types::{Type, Value};
 
 pub trait BoundExpression {
-
+    fn is_constant(&self) -> bool {
+        false
+    }
 }
 
 pub trait Expression<'a> {

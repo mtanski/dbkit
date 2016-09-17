@@ -24,6 +24,8 @@ pub enum DBError {
     Memory,
     /// Memory allocation limit reached (via policy)
     MemoryLimit,
+    ///
+    JITEngine(String),
 }
 
 impl DBError {
@@ -59,6 +61,8 @@ impl fmt::Display for DBError {
                 write!(f, "Memory allocation failure"),
             DBError::MemoryLimit =>
                 write!(f, "Memory allocation failure due to policy limit"),
+            DBError::JITEngine(ref reason) =>
+                write!(f, "JIT engine failure: {}", reason),
         }
     }
 }
