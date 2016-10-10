@@ -3,6 +3,7 @@
 // libstd
 use std::mem;
 use std::slice;
+use std::ops::{Index, IndexMut};
 
 // DBKit
 use super::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
@@ -442,3 +443,17 @@ impl<'b> Block<'b> {
     }
 }
 
+impl<'a> Index<usize> for Block<'a> {
+    type Output = Column<'a>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.columns[index]
+    }
+}
+
+/// Address mutable column by its inde
+impl<'a> IndexMut<usize> for Block<'a> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.columns[index]
+    }
+}
