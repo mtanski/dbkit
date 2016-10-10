@@ -19,6 +19,9 @@ pub enum DBError {
     /// Duplicate attribute in result schema
     AttributeDuplicate(String),
     ///
+    ExpressionInputType(String),
+    ExpressionInputCount(String),
+    ///
     RowOutOfBounds,
     /// Unknown memory allocation error
     Memory,
@@ -54,7 +57,11 @@ impl fmt::Display for DBError {
             DBError::AttributeType(ref attr) =>
                 write!(f, "Attribute Type Mismatch {}", attr),
             DBError::AttributeDuplicate(ref attr) =>
-                write!(f, "Duplicate Attribute Name {} in output schema", attr),
+                write!(f, "Duplicate Attribute name {} in output schema", attr),
+            DBError::ExpressionInputType(ref str) =>
+                write!(f, "Invalid expression input type: {}", str),
+            DBError::ExpressionInputCount(ref str) =>
+                write!(f, "Invalid expression input count: {}", str),
             DBError::RowOutOfBounds =>
                 write!(f, "Row out of bounds"),
             DBError::Memory =>
