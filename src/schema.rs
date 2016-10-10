@@ -32,6 +32,10 @@ impl Attribute {
     pub fn rename<S: Into<String>>(&self, name: S) -> Attribute {
         Attribute { name: name.into(), nullable: self.nullable, dtype: self.dtype }
     }
+
+    pub fn cast(&self, cast: Type) -> Attribute {
+        Attribute { name: self.name.clone(), nullable: self.nullable, dtype: cast }
+    }
 }
 
 impl Schema {
