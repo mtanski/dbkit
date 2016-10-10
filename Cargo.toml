@@ -13,6 +13,7 @@ readme = "README.md"
 toml = "^0.2"
 log = "^0.3"
 itertools = "^0.4"
+num = "^0.1"
 
 [lib]
 name = "dbkit_engine"

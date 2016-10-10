@@ -4,6 +4,7 @@
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(heap_api)]
+#![feature(inclusive_range_syntax)]
 #![feature(question_mark)]
 
 //! DBKit Engine -- Columnar query processing engine
@@ -16,6 +17,8 @@ extern crate alloc;
 
 #[macro_use]
 extern crate itertools;
+
+extern crate num;
 
 /// Database error type and error utilities
 pub mod error;
