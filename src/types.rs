@@ -35,8 +35,11 @@ pub trait ValueInfo {
 
     /// Symbolic type
     const ENUM: Type;
+
     /// Do this value require deep copying of data (stored in the `Column' arena)
     const DEEP_COPY: bool = false;
+
+    const VARLEN: bool = false;
 
     // RUST is frustrating
     // cannot use mem::size_of::<Self::Store>()
@@ -95,12 +98,14 @@ impl ValueInfo for Text {
     type Store = RawData;
     const ENUM: Type = Type::TEXT;
     const DEEP_COPY: bool = true;
+    const VARLEN: bool = true;
 }
 
 impl ValueInfo for Blob {
     type Store = RawData;
     const ENUM: Type = Type::BLOB;
     const DEEP_COPY: bool = true;
+    const VARLEN: bool = true;
 }
 
 static UINT32: UInt32 = UInt32{};
