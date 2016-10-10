@@ -474,6 +474,26 @@ impl<'b> Block<'b> {
         }
     }
 
+    /// Add a slew of uninitialized rows
+    pub fn add_rows(&mut self, rows: RowOffset) -> Result<RowOffset, DBError> {
+        if self.capacity > self.rows + rows {
+            let rowid = self.rows + rows;
+            self.rows += rows;
+            Ok(rowid)
+        } else {
+            let rowid = self.rows;
+            let mut new_cap = self.capacity + rows;
+            new_cap = round_up(new_cap, 1024);
+
+            if let Some(err) = self.set_capacity(new_cap) {
+                Err(err)
+            } else {
+                self.rows += rows;
+                Ok(rowid)
+            }
+        }
+    }
+
     /// Mutable reference to column and its data.
     pub fn column_mut(&mut self, pos: usize) -> Option<&mut Column<'b>> {
         self.columns.get_mut(pos)
