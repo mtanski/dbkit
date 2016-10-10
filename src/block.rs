@@ -6,11 +6,12 @@ use std::slice;
 use std::ops::{Index, IndexMut};
 
 // DBKit
-use super::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
-use super::types::ValueInfo;
-use super::schema::{Attribute, Schema};
-use super::error::DBError;
-use super::row::{RowOffset, RowRange};
+use ::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
+use ::types::ValueInfo;
+use ::schema::{Attribute, Schema};
+use ::error::DBError;
+use ::row::{RowOffset, RowRange};
+use ::util::math::*;
 
 pub type BoolBitmap<'a> = &'a [u8];
 pub type MutBoolBitmap<'a> = &'a mut [u8];
@@ -21,6 +22,20 @@ const ARENA_MIN_SIZE : usize = MIN_ALIGN;
 /// Limit on arena chunk size. This is also on the largest VARLEN value in Columns.
 /// Currently the limit for large blobs / text is up to 16MB.
 const ARENA_MAX_SIZE : usize = 16 * 1024 * 1024;
+
+pub struct ColumnRows<'a, T: ValueInfo>
+    where <T as ValueInfo>::Store: 'a
+{
+    pub values: &'a [T::Store],
+    pub nulls: BoolBitmap<'a>,
+}
+
+pub struct ColumnRowsMut<'a, T: ValueInfo>
+    where <T as ValueInfo>::Store: 'a
+{
+    pub values: &'a mut [T::Store],
+    pub nulls: MutBoolBitmap<'a>,
+}
 
 /// Trait representing a reference to column data.
 /// Data can be owned by current object or references from another one.
@@ -41,10 +56,38 @@ pub trait RefColumn<'re> {
     unsafe fn nulls_ptr(&self) -> *const u8;
 }
 
-/// Slice representing the column value vector (row data)
-///
-// RUST FRUSTRATION: wish this could be part of `RefColumn`
-pub fn column_rows<'c, T: ValueInfo>(col: &'c RefColumn) -> Result<&'c [T::Store], DBError> {
+/// Helper badness for converting raw column data into a typed slice of rows.
+// It's not really 'static, but we don't have enough context in thi
+#[inline]
+unsafe fn rows_from_rawptr<'a, T>(ptr: *mut u8, elems: usize) -> &'a mut [T] {
+    let typed_ptr: *mut T = mem::transmute(ptr);
+    if !typed_ptr.is_null() {
+        slice::from_raw_parts_mut(typed_ptr, elems)
+    } else {
+        &mut []
+    }
+}
+
+/// Helper badness for converting raw column data into a slice of row's null bitmap.
+// It's not really 'static, but we don't have enough context in thi
+#[inline]
+unsafe fn rows_from_rawptr_const<'a, T>(ptr: *const u8, elems: usize) -> &'a [T] {
+    let typed_ptr: *const T = mem::transmute(ptr);
+    if !typed_ptr.is_null() {
+        slice::from_raw_parts(typed_ptr, elems)
+    } else {
+        &[]
+    }
+}
+
+/// Two slices. One representing the column value vector (row data). Second representing the column
+/// null vector (row data).
+// RUST FRUSTRATION: wish this could be part of `RefColumn`.
+// Can't have generics methods be part of the trait... even if there's default trait implementation.
+//
+// Inline: so we can optimize away a bunch of code (like we're not using nulls in context)
+#[inline]
+pub fn column_row_data<'c, T: ValueInfo>(col: &'c RefColumn) -> Result<ColumnRows<'c, T>, DBError> {
     let attr = col.attribute();
     let rows = col.capacity();
 
@@ -53,38 +96,10 @@ pub fn column_rows<'c, T: ValueInfo>(col: &'c RefColumn) -> Result<&'c [T::Store
     }
 
     unsafe {
-        let col_ptr = col.rows_ptr();
-        let typed_ptr: *const T::Store = mem::transmute(col_ptr);
-
-        let out = if typed_ptr.is_null() {
-            &[]
-        } else {
-            slice::from_raw_parts(typed_ptr, rows)
-        };
-
-        Ok(out)
-    }
-}
-
-/// Slice representing the column null vector (row data)
-pub fn column_nulls<'c>(col: &'c RefColumn) ->  Result<BoolBitmap<'c>, DBError> {
-    let attr = col.attribute();
-    let rows = col.capacity();
-
-    if !attr.nullable {
-        return Err(DBError::AttributeNullability(attr.name.clone()))
-    }
-
-    unsafe {
-        let nulls_ptr = col.nulls_ptr();
-
-        let out = if nulls_ptr.is_null() {
-            &[]
-        } else {
-            slice::from_raw_parts(nulls_ptr, rows)
-        };
-
-        Ok(out)
+        Ok(ColumnRows{
+            values: rows_from_rawptr_const::<T::Store>(col.rows_ptr(), rows),
+            nulls: rows_from_rawptr_const::<u8>(col.nulls_ptr(), rows),
+        })
     }
 }
 
@@ -244,6 +259,28 @@ impl<'alloc> Column<'alloc> {
             };
 
             Ok(out)
+        }
+    }
+
+    pub fn row_data_mut<T: ValueInfo>(&mut self) -> Result<ColumnRowsMut<T>, DBError> {
+        if self.attr.dtype != T::ENUM {
+            return Err(DBError::AttributeType(self.attr.name.clone()))
+        }
+
+        unsafe {
+            let ptr: *mut T::Store = mem::transmute(self.raw.as_mut_ptr());
+            let rows = if ptr.is_null() {
+                &mut []
+            } else {
+                slice::from_raw_parts_mut(ptr, self.capacity())
+            };
+
+            let nulls: MutBoolBitmap = match self.raw_nulls.data {
+                Some(ref mut slice) => slice,
+                _ => &mut[],
+            };
+
+            Ok(ColumnRowsMut{ values: rows, nulls: nulls})
         }
     }
 
