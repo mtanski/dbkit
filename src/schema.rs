@@ -3,6 +3,7 @@
 // libstd
 use std::iter::Iterator;
 use std::collections::HashSet;
+use std::ops::Index;
 
 // DBKit
 use super::error::DBError;
@@ -99,6 +100,15 @@ impl Schema {
 
     pub fn iter(&self) -> AttributeIter {
         AttributeIter { schema: self, cur: 0 }
+    }
+}
+
+/// Address schema attributes by their index
+impl Index<usize> for Schema {
+    type Output = Attribute;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.attrs[index]
     }
 }
 
