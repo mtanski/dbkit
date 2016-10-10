@@ -6,6 +6,7 @@
 #![feature(heap_api)]
 #![feature(inclusive_range_syntax)]
 #![feature(question_mark)]
+#![feature(specialization)]
 
 //! DBKit Engine -- Columnar query processing engine
 //!
