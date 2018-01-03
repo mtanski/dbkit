@@ -10,7 +10,7 @@ readme = "README.md"
 
 
 [dependencies]
-toml = "^0.2"
+toml = "^0.4"
 log = "^0.3"
 itertools = "^0.4"
 num = "^0.1"
