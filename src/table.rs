@@ -194,9 +194,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
 mod tests {
     use super::*;
     use allocator;
-    use block::*;
     use error::DBError;
-    use row::*;
     use schema::*;
     use types::*;
 

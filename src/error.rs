@@ -1,7 +1,9 @@
 // vim: set ts=4 sw=4 et :
 
 use std::fmt;
+use std::heap::AllocErr;
 use std::io::{Error as IOError};
+
 
 /// Query execution errors
 pub enum DBError {
@@ -21,10 +23,11 @@ pub enum DBError {
     ///
     ExpressionInputType(String),
     ExpressionInputCount(String),
+    ExpressionNotCost,
     ///
     RowOutOfBounds,
     /// Unknown memory allocation error
-    Memory,
+    Memory(AllocErr),
     /// Memory allocation limit reached (via policy)
     MemoryLimit,
 }
@@ -60,10 +63,12 @@ impl fmt::Display for DBError {
                 write!(f, "Invalid expression input type: {}", str),
             DBError::ExpressionInputCount(ref str) =>
                 write!(f, "Invalid expression input count: {}", str),
+            DBError::ExpressionNotCost =>
+                write!(f, "Expression expected to be const"),
             DBError::RowOutOfBounds =>
                 write!(f, "Row out of bounds"),
-            DBError::Memory =>
-                write!(f, "Memory allocation failure"),
+            DBError::Memory(ref e) =>
+                write!(f, "Memory allocation failure: {}", e),
             DBError::MemoryLimit =>
                 write!(f, "Memory allocation failure due to policy limit"),
         }

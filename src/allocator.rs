@@ -1,6 +1,6 @@
 // vim : set ts=4 sw=4 et :
 
-use alloc::heap;
+use alloc::heap::{Alloc, AllocErr, Heap, Layout};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -77,7 +77,7 @@ impl<'a> OwnedChunk<'a> {
                 return allocator.resize(self, size);
             }
 
-            Some(DBError::Memory)
+            Some(DBError::Memory(AllocErr::Unsupported{details: "Unkown parent"}))
         }
     }
 }
@@ -109,37 +109,29 @@ impl Allocator for HeapAllocator {
 
     fn allocate_aligned(&self, size: usize, align: usize) -> Result<OwnedChunk, DBError> {
         unsafe {
-            let data = heap::allocate(size, align);
-
-            if data.is_null() {
-                return Err(DBError::Memory);
-            }
-
-            let slice = slice::from_raw_parts_mut::<u8>(data, size);
-
-            Ok(OwnedChunk {
-                // There's no tracking of memory here
-                parent: Some(self),
-                data: Some(slice),
-                align: align,
-            })
+            let layout = Layout::from_size_align_unchecked(size, align);
+            
+            Heap.alloc(layout)
+                .map_err(|err| DBError::Memory(err))
+                .map(|data| slice::from_raw_parts_mut::<u8>(data, size))
+                .map(|slice| OwnedChunk { parent: Some(self), data: Some(slice), align: align })
         }
     }
 
-    unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError>
-    {
-        let mut data = prev.as_mut_ptr();
-        let nlen = heap::reallocate_inplace(data, prev.len(), size, prev.align);
+    unsafe fn resize<'a>(&self, prev: &mut OwnedChunk<'a>, size: usize) -> Option<DBError> {
+        let old_layout = Layout::from_size_align_unchecked(prev.len(), prev.align);
+        let new_layout = Layout::from_size_align_unchecked(size, prev.align);
 
-        if nlen != size {
-            data = heap::reallocate(data, prev.len(), size, prev.align);
-            if data.is_null() {
-                return Some(DBError::Memory)
-            }
-        }
+        let data = prev.as_mut_ptr();
+        let status = Heap
+            .realloc(data, old_layout, new_layout)
+            .map_err(|err| DBError::Memory(err));
 
-        prev.data = Some(slice::from_raw_parts_mut::<u8>(data, size));
-        None
+        if let Ok(v) = status {
+            prev.data = Some(slice::from_raw_parts_mut::<u8>(v, size));
+        };
+
+        status.err()
     }
 
     fn putback(&self, c: &mut OwnedChunk) {
@@ -150,7 +142,10 @@ impl Allocator for HeapAllocator {
 
     fn putback_raw(&self, ptr: *mut u8, size: usize, align: usize) {
         // Just deallocate, no heap tracking
-        unsafe { heap::deallocate(ptr, size, align); }
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(size, align);
+            Heap.dealloc(ptr, layout)
+        }
     }
 }
 

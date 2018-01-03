@@ -1,15 +1,26 @@
-use std::convert::Into;
-
 use ::allocator::Allocator;
 use ::block::{Block, View};
 use ::error::DBError;
 use ::schema::Schema;
-use ::types::{Type, Value};
+use ::types::Value;
 use ::row::RowOffset;
+
+/// Single expression in a expression AST.
+/// This expression has been been type checked nor materialized.
+pub trait Expr<'b> {
+    fn bind<'a: 'b>(&self, alloc: &'a Allocator, input_schema: &Schema)
+                    -> Result<Box<BoundExpr<'a> + 'b>, DBError>;
+
+    /// Expression can be evaluated without row data and the expression produces the same value on
+    /// each invocation.
+    fn is_constant(&self) -> bool {
+        false
+    }
+}
 
 /// Materialized expression. Input and output schema of the operation are know
 ///
-pub trait BoundExpression<'alloc> {
+pub trait BoundExpr<'alloc> {
     /// Output schema
     fn schema(&self) -> &Schema;
 
@@ -21,31 +32,12 @@ pub trait BoundExpression<'alloc> {
     fn is_constant(&self) -> bool {
         false
     }
-}
 
-/// Expression    checked that hasn't been 
-/// 
-pub trait Expression<'b> {
-    fn bind<'a: 'b>(&self, alloc: &'a Allocator, input_schema: &Schema)
-        -> Result<Box<BoundExpression<'a> + 'b>, DBError>;
-}
-
-pub struct GenericConstValue<'a> {
-    pub value: Value<'a>
-}
-
-pub struct BoundConstValue<'a> {
-    pub dtype: Type,
-    pub value: Value<'a>
-}
-
-impl<'a> GenericConstValue<'a>
-{
-    pub fn new<T>(from: T) -> GenericConstValue<'a>
-        where T: Into<Value<'a>>
-    {
-        GenericConstValue{ value: from.into() }
+    fn evaluate_constant(&self) -> Result<Value<'alloc>, DBError> {
+        Err(DBError::ExpressionNotCost)
     }
 }
 
 pub mod convert;
+pub mod comparison;
+// pub mod internal;

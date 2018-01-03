@@ -37,7 +37,7 @@ pub trait ValueInfo {
     const ENUM: Type;
 
     /// Do this value require deep copying of data (stored in the `Column' arena)
-    const DEEP_COPY: bool = false;
+    const DEEP_COPY: bool = true;
 
     const VARLEN: bool = false;
 
@@ -104,7 +104,6 @@ impl ValueInfo for Text {
 impl ValueInfo for Blob {
     type Store = RawData;
     const ENUM: Type = Type::BLOB;
-    const DEEP_COPY: bool = true;
     const VARLEN: bool = true;
 }
 
@@ -193,7 +192,8 @@ impl ToString for RawData {
 }
 
 /// Value representing the null database column value
-pub struct NullValue { }
+pub struct NullType { }
+pub const NULL_VALUE: NullType = NullType {};
 
 /// Container storing any kind of value
 pub enum Value<'a> {
@@ -209,8 +209,8 @@ pub enum Value<'a> {
     BLOB(&'a [u8]),
 }
 
-impl<'a> From<NullValue> for Value<'a> {
-    fn from(_: NullValue) -> Self {
+impl<'a> From<NullType> for Value<'a> {
+    fn from(_: NullType) -> Self {
         Value::NULL
     }
 }

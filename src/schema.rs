@@ -33,6 +33,7 @@ impl Attribute {
         Attribute { name: name.into(), nullable: self.nullable, dtype: self.dtype }
     }
 
+    /// Helper methods to create a the same named attribute but of different type
     pub fn cast(&self, cast: Type) -> Attribute {
         Attribute { name: self.name.clone(), nullable: self.nullable, dtype: cast }
     }
@@ -115,14 +116,6 @@ impl Index<usize> for Schema {
         &self.attrs[index]
     }
 }
-
-/*
-
-impl Display for Schema {
-
-}
-
-*/
 
 impl<'a> Iterator for AttributeIter<'a> {
     type Item = &'a Attribute;

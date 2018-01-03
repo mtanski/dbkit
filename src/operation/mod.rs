@@ -5,6 +5,7 @@ use super::block::RefView;
 use super::row::RowOffset;
 use super::schema::Schema;
 
+#[allow(dead_code)]
 const DEFAULT_CURSOR_FETCH : RowOffset = 1024;
 
 /// Next series of `Cursor` data

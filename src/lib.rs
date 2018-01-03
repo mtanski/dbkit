@@ -1,12 +1,13 @@
 #![feature(alloc)]
+#![feature(allocator_api)]
 #![feature(associated_consts)]
 #![feature(associated_type_defaults)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(heap_api)]
 #![feature(inclusive_range_syntax)]
-#![feature(question_mark)]
 #![feature(specialization)]
+// #![feature(nll)]
 
 //! DBKit Engine -- Columnar query processing engine
 //!
@@ -17,6 +18,8 @@
 extern crate alloc;
 
 #[macro_use]
+extern crate log;
+
 extern crate itertools;
 
 extern crate num;
