@@ -7,7 +7,7 @@
 #![feature(heap_api)]
 #![feature(inclusive_range_syntax)]
 #![feature(specialization)]
-// #![feature(nll)]
+#![feature(nll)]
 
 //! DBKit Engine -- Columnar query processing engine
 //!
