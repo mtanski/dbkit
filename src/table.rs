@@ -194,9 +194,7 @@ impl<'alloc, 't> TableAppender<'alloc, 't> {
 mod tests {
     use super::*;
     use allocator;
-    use block::*;
     use error::DBError;
-    use row::*;
     use schema::*;
     use types::*;
 
@@ -226,11 +224,10 @@ mod tests {
 
         // Verify data
         let column = table.block_ref().column(0).unwrap();
-        let data = column_rows::<UInt32>(column).unwrap();
-        let nulls = column_nulls(column).unwrap();
+        let rows = column_row_data::<UInt32>(column).unwrap();
 
-        assert!(nulls[0] == 1 && nulls[1] == 0, "Null vector incorrect");
-        assert_eq!(data[1], 15);
+        assert!(rows.nulls[0] == 1 && rows.nulls[1] == 0, "Null vector incorrect");
+        assert_eq!(rows.values[1], 15);
     }
 
     #[test]
@@ -279,14 +276,18 @@ mod tests {
             table
         };
 
-        let col0 = table.block_ref().column(0).unwrap();
-        let cd0 = column_rows::<Blob>(col0).unwrap();
-        assert_eq!(cd0[0].as_ref(), bytes);
-        assert_eq!(cd0[1].as_ref(), bytes);
+        {
+            let col0 = table.block_ref().column(0).unwrap();
+            let rows = column_row_data::<Blob>(col0).unwrap();
+            assert_eq!(rows.values[0].as_ref(), bytes);
+            assert_eq!(rows.values[1].as_ref(), bytes);
+        }
 
-        let col1 = table.block_ref().column(1).unwrap();
-        let cd1 = column_rows::<Text>(col1).unwrap();
-        assert_eq!(cd1[0].as_ref() as &str, "one");
-        assert_eq!(cd1[1].to_string(), String::from("two"));
+        {
+            let col1 = table.block_ref().column(1).unwrap();
+            let rows = column_row_data::<Text>(col1).unwrap();
+            assert_eq!(rows.values[0].as_ref() as &str, "one");
+            assert_eq!(rows.values[1].to_string(), String::from("two"));
+        }
     }
 }

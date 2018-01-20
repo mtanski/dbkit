@@ -1,41 +1,43 @@
-use std::convert::Into;
-
 use ::allocator::Allocator;
+use ::block::{Block, View};
 use ::error::DBError;
-use ::types::{Type, Value};
+use ::schema::Schema;
+use ::types::Value;
+use ::row::RowOffset;
 
-pub trait BoundExpression {
+/// Single expression in a expression AST.
+/// This expression has been been type checked nor materialized.
+pub trait Expr<'b> {
+    fn bind<'a: 'b>(&self, alloc: &'a Allocator, input_schema: &Schema)
+                    -> Result<Box<BoundExpr<'a> + 'b>, DBError>;
 
-}
-
-pub trait Expression<'a> {
-    fn bind<'b: 'a>(&self, alloc: &'a Allocator) -> Result<Box<BoundExpression + 'a>, DBError>;
-}
-
-pub struct GenericConstValue<'a> {
-    pub value: Value<'a>
-}
-
-pub struct CastExpression<'a> {
-    pub to: Type,
-    pub input: Box<Expression<'a> + 'a>,
-}
-
-impl<'a> GenericConstValue<'a>
-{
-    pub fn new<T>(from: T) -> GenericConstValue<'a>
-        where T: Into<Value<'a>>
-    {
-        GenericConstValue{ value: from.into() }
+    /// Expression can be evaluated without row data and the expression produces the same value on
+    /// each invocation.
+    fn is_constant(&self) -> bool {
+        false
     }
 }
 
-impl<'a> CastExpression<'a> {
-    pub fn new<T: Expression<'a> + 'a>(to: Type, input: T) -> CastExpression<'a> {
-        CastExpression {
-            to: to,
-            input: box input,
-        }
+/// Materialized expression. Input and output schema of the operation are know
+///
+pub trait BoundExpr<'alloc> {
+    /// Output schema
+    fn schema(&self) -> &Schema;
+
+    fn evaluate<'a>(&self, view: &'a View<'a>, rows: RowOffset) -> Result<Block<'alloc>, DBError>;
+
+    /// Parent expression can can hoist out the constant value and use it directly in the
+    /// expression without generating the column. For example hoisting out a constant in a EQUALS
+    /// expression.
+    fn is_constant(&self) -> bool {
+        false
+    }
+
+    fn evaluate_constant(&self) -> Result<Value<'alloc>, DBError> {
+        Err(DBError::ExpressionNotCost)
     }
 }
 
+pub mod convert;
+pub mod comparison;
+// pub mod internal;

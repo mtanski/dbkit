@@ -1,10 +1,13 @@
 #![feature(alloc)]
+#![feature(allocator_api)]
 #![feature(associated_consts)]
 #![feature(associated_type_defaults)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(heap_api)]
-#![feature(question_mark)]
+#![feature(inclusive_range_syntax)]
+#![feature(specialization)]
+// #![feature(nll)]
 
 //! DBKit Engine -- Columnar query processing engine
 //!
@@ -15,7 +18,11 @@
 extern crate alloc;
 
 #[macro_use]
+extern crate log;
+
 extern crate itertools;
+
+extern crate num;
 
 /// Database error type and error utilities
 pub mod error;
