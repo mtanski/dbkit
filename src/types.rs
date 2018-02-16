@@ -41,12 +41,7 @@ pub trait ValueInfo {
 
     const VARLEN: bool = false;
 
-    // RUST is frustrating
-    // cannot use mem::size_of::<Self::Store>()
-    // because apparently size_of is not constant.
-    fn size_of(&self) -> usize {
-        mem::size_of::<Self::Store>()
-    }
+    const SIZE: usize = mem::size_of::<Self::Store>();
 }
 
 pub struct UInt32;
@@ -138,15 +133,15 @@ impl Type {
     // So we have to keep repeating ourselves
     pub fn size_of(self) -> usize {
         match self {
-            Type::UINT32    => UINT32.size_of(),
-            Type::UINT64    => UINT64.size_of(),
-            Type::INT32     => INT32.size_of(),
-            Type::INT64     => INT64.size_of(),
-            Type::FLOAT32   => FLOAT32.size_of(),
-            Type::FLOAT64   => FLOAT64.size_of(),
-            Type::BOOLEAN   => BOOLEAN.size_of(),
-            Type::TEXT      => TEXT.size_of(),
-            Type::BLOB      => BLOB.size_of(),
+            Type::UINT32    => UInt32::SIZE,
+            Type::UINT64    => UInt64::SIZE,
+            Type::INT32     => Int32::SIZE,
+            Type::INT64     => Int64::SIZE,
+            Type::FLOAT32   => Float32::SIZE,
+            Type::FLOAT64   => Float64::SIZE,
+            Type::BOOLEAN   => Boolean::SIZE,
+            Type::TEXT      => Text::SIZE,
+            Type::BLOB      => Blob::SIZE,
         }
     }
 }
