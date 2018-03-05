@@ -326,6 +326,24 @@ pub trait View<'v> {
 
     /// Number of rows
     fn rows(&self) -> RowOffset;
+
+    fn slice_view(&'v self, col_ids: &[usize], range: Option<RowRange>) -> Result<RefView<'v>, DBError> {
+        let schema = self.schema().sub_from_colids(col_ids)?;
+
+        let rows = range
+            .map(|r| r.rows)
+            .unwrap_or(self.rows());
+
+        let mut columns: Vec<AliasColumn> = Vec::with_capacity(col_ids.len());
+
+        // No need to check for dups (Schema::sub_from_coldis already does)
+        for pos in col_ids {
+            let col = alias_column(self.column(*pos).unwrap(), range)?;
+            columns.push(col);
+        }
+
+        Ok(RefView { schema, rows, columns })
+    }
 }
 
 /// An implementation of a View that doesn't "own" the data but aliases it
