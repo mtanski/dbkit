@@ -5,8 +5,10 @@
 #![feature(box_syntax)]
 #![feature(heap_api)]
 #![feature(inclusive_range_syntax)]
+#![feature(match_default_bindings)]
+#![feature(option_filter)]
+#![feature(nll)]
 #![feature(specialization)]
-// #![feature(nll)]
 
 //! DBKit Engine -- Columnar query processing engine
 //!
@@ -16,7 +18,6 @@
 
 extern crate alloc;
 
-#[macro_use]
 extern crate log;
 
 extern crate itertools;

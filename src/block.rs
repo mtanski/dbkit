@@ -7,7 +7,7 @@ use std::ops::{Index, IndexMut};
 
 // DBKit
 use ::allocator::{Allocator, OwnedChunk, ChainedArena, MIN_ALIGN};
-use ::types::ValueInfo;
+use ::types::TypeInfo;
 use ::schema::{Attribute, Schema};
 use ::error::DBError;
 use ::row::{RowOffset, RowRange};
@@ -23,15 +23,15 @@ const ARENA_MIN_SIZE : usize = MIN_ALIGN;
 /// Currently the limit for large blobs / text is up to 16MB.
 const ARENA_MAX_SIZE : usize = 16 * 1024 * 1024;
 
-pub struct ColumnRows<'a, T: ValueInfo>
-    where <T as ValueInfo>::Store: 'a
+pub struct ColumnRows<'a, T: TypeInfo>
+    where <T as TypeInfo>::Store: 'a
 {
     pub values: &'a [T::Store],
     pub nulls: BoolBitmap<'a>,
 }
 
-pub struct ColumnRowsMut<'a, T: ValueInfo>
-    where <T as ValueInfo>::Store: 'a
+pub struct ColumnRowsMut<'a, T: TypeInfo>
+    where <T as TypeInfo>::Store: 'a
 {
     pub values: &'a mut [T::Store],
     pub nulls: MutBoolBitmap<'a>,
@@ -87,7 +87,7 @@ unsafe fn rows_from_rawptr_const<'a, T>(ptr: *const u8, elems: usize) -> &'a [T]
 //
 // Inline: so we can optimize away a bunch of code (like we're not using nulls in context)
 #[inline]
-pub fn column_row_data<'c, T: ValueInfo>(col: &'c RefColumn) -> Result<ColumnRows<'c, T>, DBError> {
+pub fn column_row_data<'c, T: TypeInfo>(col: &'c RefColumn) -> Result<ColumnRows<'c, T>, DBError> {
     let attr = col.attribute();
     let rows = col.capacity();
 
@@ -245,7 +245,7 @@ impl<'alloc> Column<'alloc> {
         Ok(out)
     }
 
-    pub fn rows_mut<T: ValueInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
+    pub fn rows_mut<T: TypeInfo>(&mut self) -> Result<&mut [T::Store], DBError> {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
         }
@@ -262,7 +262,7 @@ impl<'alloc> Column<'alloc> {
         }
     }
 
-    pub fn row_data_mut<T: ValueInfo>(&mut self) -> Result<ColumnRowsMut<T>, DBError> {
+    pub fn row_data_mut<T: TypeInfo>(&mut self) -> Result<ColumnRowsMut<T>, DBError> {
         if self.attr.dtype != T::ENUM {
             return Err(DBError::AttributeType(self.attr.name.clone()))
         }
@@ -370,7 +370,8 @@ impl<'a> View<'a> for RefView<'a> {
 pub fn window_alias<'a>(src: &'a View<'a>, range: Option<RowRange>)
     -> Result<RefView<'a>, DBError>
 {
-    let (offset, rows) = range.map_or((0, src.rows()), |r| (r.offset, r.rows));
+    let (offset, rows) = range
+        .map_or((0, src.rows()), |r| (r.offset, r.rows));
 
     if offset + rows > src.rows() {
         Err(DBError::RowOutOfBounds)

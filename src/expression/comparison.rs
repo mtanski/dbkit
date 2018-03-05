@@ -3,14 +3,14 @@ use std::marker::PhantomData;
 
 use ::expression::*;
 use ::error::DBError;
-use ::types::ValueInfo;
+use ::types::TypeInfo;
 
 pub struct EqaulsExpr<'a> {
     pub lhs: Box<Expr<'a> + 'a>,
     pub rhs: Box<Expr<'a> + 'a>,
 }
 
-struct EqualsBound<'a, T: 'a + ValueInfo> {
+struct EqualsBound<'a, T: 'a + TypeInfo> {
     alloc: &'a Allocator,
     schema: Schema, // TODO: Can this just be a static?
     phantom: PhantomData<&'a T>,
@@ -30,15 +30,15 @@ impl<'b> Expr<'b> for EqaulsExpr<'b> {
     }
 }
 
-impl<'alloc, T: ValueInfo, V: Eq> BoundExpr<'alloc> for EqualsBound<'alloc, T>
-    where T: ValueInfo<Store=V>
+impl<'alloc, T: TypeInfo, V: Eq> BoundExpr<'alloc> for EqualsBound<'alloc, T>
+    where T: TypeInfo<Store=V>
 {
     default fn schema(&self) -> &Schema {
         &self.schema
     }
 
     fn evaluate<'a>(&self, view: &'a View<'a>, rows: RowOffset) -> Result<Block<'alloc>, DBError> {
-        let mut out = Block::new(self.alloc, &self.schema);
+        let out = Block::new(self.alloc, &self.schema);
 
         Ok(out)
     }

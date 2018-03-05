@@ -92,8 +92,8 @@ impl<'alloc> BoundExpr<'alloc> for ToStrBound<'alloc, Blob>
     }
 }
 
-impl<'alloc, T: ValueInfo, V: ToString> BoundExpr<'alloc> for ToStrBound<'alloc, T>
-    where T: ValueInfo<Store=V>
+impl<'alloc, T: TypeInfo, V: ToString> BoundExpr<'alloc> for ToStrBound<'alloc, T>
+    where T: TypeInfo<Store=V>
 {
     default fn schema(&self) -> &Schema {
         &self.schema

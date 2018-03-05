@@ -39,8 +39,9 @@ pub trait Operation<'a> {
     fn bind<'b: 'a>(&self, &'b Allocator) -> Result<Box<Cursor<'a> + 'a>, DBError>;
 }
 
-pub mod scan_view;
+pub mod filter;
 pub mod project;
+pub mod scan_view;
 
 pub use self::scan_view::ScanView;
 pub use self::project::Project;

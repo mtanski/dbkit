@@ -6,12 +6,36 @@ use std::str;
 
 use super::error::DBError;
 
+pub trait Nullability {
+    const NULLABLE: bool;
+}
+
+pub struct Nullable;
+pub struct NotNullable;
+
+impl Nullability for Nullable {
+    const NULLABLE: bool = true;
+}
+
+impl Nullability for NotNullable {
+    const NULLABLE: bool = false;
+}
+
 /// "Native" type storing `Column` data for VARLEN columns
 #[derive(Clone, Copy)]
 pub struct RawData {
     // This cannot me a &[u8] slice because slices cannot be have a nullptr
     pub data: *mut u8,
     pub size: usize,
+}
+
+impl AsRef<str> for RawData {
+    fn as_ref(&self) -> &str {
+        unsafe {
+            let a = slice::from_raw_parts(self.data, self.size);
+            str::from_utf8_unchecked(a)
+        }
+    }
 }
 
 /// "Symbolic" Type of a `Column` `Attribute`
@@ -29,7 +53,7 @@ pub enum Type {
 }
 
 /// Trait providing higher level metadata about types
-pub trait ValueInfo {
+pub trait TypeInfo {
     /// The native Rust type backing the column vector
     type Store;
 
@@ -54,49 +78,49 @@ pub struct Boolean;
 pub struct Text;
 pub struct Blob;
 
-impl ValueInfo for UInt32 {
+impl TypeInfo for UInt32 {
     type Store = u32;
     const ENUM: Type = Type::UINT32;
 }
 
-impl ValueInfo for UInt64 {
+impl TypeInfo for UInt64 {
     type Store = u64;
     const ENUM: Type = Type::UINT64;
 }
 
-impl ValueInfo for Int32 {
+impl TypeInfo for Int32 {
     type Store = i32;
     const ENUM: Type = Type::INT32;
 }
 
-impl ValueInfo for Int64 {
+impl TypeInfo for Int64 {
     type Store = i64;
     const ENUM: Type = Type::INT64;
 }
 
-impl ValueInfo for Float32 {
+impl TypeInfo for Float32 {
     type Store = f32;
     const ENUM: Type = Type::FLOAT32;
 }
 
-impl ValueInfo for Float64 {
+impl TypeInfo for Float64 {
     type Store = f64;
     const ENUM: Type = Type::FLOAT64;
 }
 
-impl ValueInfo for Boolean {
+impl TypeInfo for Boolean {
     type Store = bool;
     const ENUM: Type = Type::BOOLEAN;
 }
 
-impl ValueInfo for Text {
+impl TypeInfo for Text {
     type Store = RawData;
     const ENUM: Type = Type::TEXT;
     const DEEP_COPY: bool = true;
     const VARLEN: bool = true;
 }
 
-impl ValueInfo for Blob {
+impl TypeInfo for Blob {
     type Store = RawData;
     const ENUM: Type = Type::BLOB;
     const VARLEN: bool = true;
@@ -167,15 +191,6 @@ impl str::FromStr for Type {
 impl AsRef<[u8]> for RawData {
     fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.data, self.size) }
-    }
-}
-
-impl AsRef<str> for RawData {
-    fn as_ref(&self) -> &str {
-        unsafe {
-            let slice = slice::from_raw_parts(self.data, self.size);
-            str::from_utf8_unchecked(slice)
-        }
     }
 }
 

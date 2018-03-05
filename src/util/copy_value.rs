@@ -1,7 +1,7 @@
 use ::block::Column;
 use ::error::DBError;
 use ::row::RowOffset;
-use ::types;
+use types::*;
 
 /// Trait for setting column row values from rust native types.
 /// Deals correctly with types that need to store data in the column's arena.
@@ -9,7 +9,7 @@ pub trait ValueSetter {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError>;
 }
 
-impl ValueSetter for types::NullType {
+impl ValueSetter for NullType {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
         let rows = col.nulls_mut()?;
         rows[row] = true as u8;
@@ -19,7 +19,7 @@ impl ValueSetter for types::NullType {
 
 impl ValueSetter for u32 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
-        let rows = col.rows_mut::<types::UInt32>()?;
+        let rows = col.rows_mut::<UInt32>()?;
         rows[row] = *self;
         Ok(())
     }
@@ -27,7 +27,7 @@ impl ValueSetter for u32 {
 
 impl ValueSetter for u64 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
-        let rows = col.rows_mut::<types::UInt64>()?;
+        let rows = col.rows_mut::<UInt64>()?;
         rows[row] = *self;
         Ok(())
     }
@@ -35,7 +35,7 @@ impl ValueSetter for u64 {
 
 impl ValueSetter for i32 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
-        let rows = col.rows_mut::<types::Int32>()?;
+        let rows = col.rows_mut::<Int32>()?;
         rows[row] = *self;
         Ok(())
     }
@@ -43,7 +43,8 @@ impl ValueSetter for i32 {
 
 impl ValueSetter for i64 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
-        let rows = col.rows_mut::<types::Int64>()?;
+        let rows = col.rows_mut::<Int64>()?;
+
         rows[row] = *self;
         Ok(())
     }
@@ -51,7 +52,7 @@ impl ValueSetter for i64 {
 
 impl ValueSetter for bool {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
-        let rows = col.rows_mut::<types::Boolean>()?;
+        let rows = col.rows_mut::<Boolean>()?;
         rows[row] = *self;
         Ok(())
     }
@@ -65,8 +66,8 @@ impl<'b> ValueSetter for &'b str {
             arena.append(data)?.1
         };
 
-        let rows = col.rows_mut::<types::Text>()?;
-        rows[row] = types::RawData{data: ptr, size: data.len()};
+        let rows = col.rows_mut::<Text>()?;
+        rows[row] = RawData{data: ptr, size: data.len()};
         Ok(())
     }
 }
@@ -79,8 +80,8 @@ impl ValueSetter for String {
             arena.append(data)?.1
         };
 
-        let rows = col.rows_mut::<types::Text>()?;
-        rows[row] = types::RawData{data: ptr, size: data.len()};
+        let rows = col.rows_mut::<Text>()?;
+        rows[row] = RawData{data: ptr, size: data.len()};
         Ok(())
     }
 }
@@ -92,8 +93,8 @@ impl<'b> ValueSetter for &'b[u8] {
             arena.append(self)?.1
         };
 
-        let rows = col.rows_mut::<types::Blob>()?;
-        rows[row] = types::RawData{data: ptr, size: self.len()};
+        let rows = col.rows_mut::<Blob>()?;
+        rows[row] = RawData{data: ptr, size: self.len()};
         Ok(())
     }
 }
