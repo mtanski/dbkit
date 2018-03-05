@@ -44,7 +44,22 @@ impl ValueSetter for i32 {
 impl ValueSetter for i64 {
     fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
         let rows = col.rows_mut::<Int64>()?;
+        rows[row] = *self;
+        Ok(())
+    }
+}
 
+impl ValueSetter for f32 {
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        let rows = col.rows_mut::<Float32>()?;
+        rows[row] = *self;
+        Ok(())
+    }
+}
+
+impl ValueSetter for f64 {
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        let rows = col.rows_mut::<Float64>()?;
         rows[row] = *self;
         Ok(())
     }
