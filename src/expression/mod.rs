@@ -40,4 +40,5 @@ pub trait BoundExpr<'alloc> {
 
 pub mod convert;
 pub mod comparison;
+pub mod regex;
 // pub mod internal;
