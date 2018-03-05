@@ -53,7 +53,15 @@ impl Schema {
     }
 
     pub fn from_vec(attrs: Vec<Attribute>) -> Result<Schema, DBError> {
-        Self::from_slice(attrs.as_slice())
+        Ok(Schema { attrs: Vec::from(attrs) })
+    }
+
+    pub fn sub_from_iter<I>(attrs: I) -> Result<Schema, DBError>
+        where I: Iterator<Item = Attribute>
+    {
+        // TODO: Check schema duplication
+        let v = attrs.collect::<Vec<_>>();
+        Ok(Schema { attrs: v })
     }
 
     /// Create a single Attribute schema from an external attribute
@@ -105,6 +113,17 @@ impl Schema {
 
     pub fn iter(&self) -> AttributeIter {
         AttributeIter { schema: self, cur: 0 }
+    }
+
+    pub fn sub_from_colids(&self, col_idx: &[usize]) -> Result<Schema, DBError> {
+        let mut out = Vec::new();
+
+        for idx in col_idx {
+            let attr = self.get(idx.clone())?;
+            out.push(attr.clone());
+        }
+
+        Schema::from_vec(out)
     }
 }
 
