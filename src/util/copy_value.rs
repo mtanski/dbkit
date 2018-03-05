@@ -126,5 +126,23 @@ impl<T> ValueSetter for Option<T>
     }
 }
 
+/// Value setter for arbitrary type stored in types::Value
+impl<'b> ValueSetter for Value<'b> {
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        match self {
+            Value::NULL         => NULL_VALUE.set_row(col, row),
+            Value::UINT32(v)    => v.set_row(col, row),
+            Value::UINT64(v)    => v.set_row(col, row),
+            Value::INT32(v)     => v.set_row(col, row),
+            Value::INT64(v)     => v.set_row(col, row),
+            Value::FLOAT32(v)   => v.set_row(col, row),
+            Value::FLOAT64(v)   => v.set_row(col, row),
+            Value::BOOLEAN(v)   => v.set_row(col, row),
+            Value::TEXT(&v)     => v.set_row(col, row),
+            Value::BLOB(&v)     => v.set_row(col, row),
+        }
+    }
+}
+
 // TODO: Make a value alias... we can set a value but without copying the data in the arena.
 // Clearly unsafe, but useful for things like join with Tiny... where it's always alive.
