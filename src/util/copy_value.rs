@@ -114,5 +114,17 @@ impl<'b> ValueSetter for &'b[u8] {
     }
 }
 
+/// Optional container. If none, then it'll be NULL
+impl<T> ValueSetter for Option<T>
+    where T: ValueSetter
+{
+    fn set_row<'a>(&self, col: &mut Column<'a>, row: RowOffset) -> Result<(), DBError> {
+        match self {
+            None    => NULL_VALUE.set_row(col, row),
+            Some(v) => v.set_row(col, row),
+        }
+    }
+}
+
 // TODO: Make a value alias... we can set a value but without copying the data in the arena.
 // Clearly unsafe, but useful for things like join with Tiny... where it's always alive.
