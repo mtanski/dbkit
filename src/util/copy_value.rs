@@ -138,8 +138,8 @@ impl<'b> ValueSetter for Value<'b> {
             Value::FLOAT32(v)   => v.set_row(col, row),
             Value::FLOAT64(v)   => v.set_row(col, row),
             Value::BOOLEAN(v)   => v.set_row(col, row),
-            Value::TEXT(&v)     => v.set_row(col, row),
-            Value::BLOB(&v)     => v.set_row(col, row),
+            Value::TEXT(v)      => v.set_row(col, row),
+            Value::BLOB(v)      => v.set_row(col, row),
         }
     }
 }
