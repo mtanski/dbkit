@@ -1,5 +1,6 @@
 
 use std::convert::{AsRef, From};
+use std::fmt;
 use std::mem;
 use std::slice;
 use std::str;
@@ -39,7 +40,7 @@ impl AsRef<str> for RawData {
 }
 
 /// "Symbolic" Type of a `Column` `Attribute`
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Type {
     UINT32,
     UINT64,
@@ -185,6 +186,12 @@ impl str::FromStr for Type {
             "BLOB"    => Ok(Type::BLOB),
             _         => Err(DBError::UnknownType(String::from(s)))
         }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
     }
 }
 
