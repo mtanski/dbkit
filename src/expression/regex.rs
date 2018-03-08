@@ -12,7 +12,7 @@ pub struct RegexMatch<'a> {
     re: regex::Regex,
 }
 
-pub struct BoundRegexMatch<'a, NULL: Nullability> {
+pub struct BoundRegexMatch<'a, NULL: NullInfo> {
     re: &'a regex::Regex,
     alloc: &'a Allocator,
     schema: Schema,
@@ -30,7 +30,7 @@ impl<'a> column::OneColMapper<Text, Boolean> for RegexMatchMapper<'a> {
 }
 
 
-impl<'alloc, NULL: Nullability> BoundExpr<'alloc> for BoundRegexMatch<'alloc, NULL>
+impl<'alloc, NULL: NullInfo> BoundExpr<'alloc> for BoundRegexMatch<'alloc, NULL>
 {
     fn schema(&self) -> &Schema {
         return &self.schema

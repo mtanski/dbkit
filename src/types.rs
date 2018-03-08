@@ -7,18 +7,18 @@ use std::str;
 
 use super::error::DBError;
 
-pub trait Nullability {
+pub trait NullInfo {
     const NULLABLE: bool;
 }
 
 pub struct Nullable;
 pub struct NotNullable;
 
-impl Nullability for Nullable {
+impl NullInfo for Nullable {
     const NULLABLE: bool = true;
 }
 
-impl Nullability for NotNullable {
+impl NullInfo for NotNullable {
     const NULLABLE: bool = false;
 }
 

@@ -19,14 +19,14 @@ pub trait OneColMapper<IT: TypeInfo, OT: TypeInfo> {
     }
 }
 
-pub struct BoundOneColMapper<IT: TypeInfo, IN: Nullability, OT: TypeInfo, ON: Nullability> {
+pub struct BoundOneColMapper<IT: TypeInfo, IN: NullInfo, OT: TypeInfo, ON: NullInfo> {
     _it: PhantomData<IT>,
     _in: PhantomData<IN>,
     _ot: PhantomData<OT>,
     _on: PhantomData<ON>,
 }
 
-impl<IT: TypeInfo, IN: Nullability, OT: TypeInfo, ON: Nullability>
+impl<IT: TypeInfo, IN: NullInfo, OT: TypeInfo, ON: NullInfo>
     BoundOneColMapper<IT, IN, OT, ON>
     where <OT as TypeInfo>::Store: Default
 {
