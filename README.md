@@ -17,18 +17,25 @@ dbkit can be used to build:
 Since the project early in its life and under currently *under heavy development* and no backwards
 compatability is provided even in minor versions.
 
-## Supersonic inspiration
+## Personal Goals
 
-dbkit is inspired by the [Supersonic](https://github.com/google/supersonic) columar query engine by Google.
-While dbkit draws a lot of inspiration from Supersonic it is not meant to be a strait port from C++ to Rust.
+dbkit is my personal project to improve my Rust skills and be means of learning a number of new
+techniques (such a code generation) through the lense of databases. 
 
-## Goals
+This project has been influenced by many database papers, open source databases,
+CMU's database group's [Youtube channel](https://www.youtube.com/@CMUDatabaseGroup)
+and of course my past career of building weird little databases.
+
+## Project Goals
 
 - [X] Building blocks representing schema & data
 - [ ] Implementation of relational operations and expressions *In progress*
 - [ ] Query AST tree representation
 - [ ] SIMD implementation of operations
-- [ ] GPU (OpenCL) implementation of operations 
+- [ ] GPU (OpenCL) implementation of operations
+- [ ] Bindings for other languages
+    - [ ] Python
+    - [ ] ?
 
 ## Documentation
 
